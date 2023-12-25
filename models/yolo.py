@@ -699,7 +699,7 @@ class IBin(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, cfg='yolor-csp-c.yaml', ch=3, nc=None, anchors=None):  # model, input channels, number of classes
+    def __init__(self, cfg='yolor-csp-c.yaml', ch=3, nc=None, anchors=None, hyp = hyp):  # model, input channels, number of classes
         super(Model, self).__init__()
         self.traced = False
         if isinstance(cfg, dict):
@@ -720,6 +720,7 @@ class Model(nn.Module):
             self.yaml['anchors'] = round(anchors)  # override yaml value
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
+        self.hyp = hyp
         # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
         # Build strides, anchors

@@ -105,7 +105,7 @@ def train(hyp, opt, device, tb_writer=None):
         model.load_state_dict(state_dict, strict=False)  # load
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
-        model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors')).to(device)  # create
+        model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device)  # create
     
     with torch_distributed_zero_first(rank):
         check_dataset(data_dict)  # check
