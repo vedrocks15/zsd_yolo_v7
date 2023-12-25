@@ -401,7 +401,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path[:-1] if path[-1] == '/' else path # removing an additional forward slash...
-        self.image_folder = path.split("/")[-1]
+        self.image_folder = "images"
         self.annot_folder = annot_folder
 
 
