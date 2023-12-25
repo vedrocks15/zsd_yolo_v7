@@ -56,13 +56,13 @@ def train(hyp, opt, device, tb_writer=None):
     best_no_det = wdir / 'best_no_det.pt'
 
 
-    # Save run settings
+    # Saving the config settings during training....
     with open(save_dir / 'hyp.yaml', 'w') as f:
         yaml.dump(hyp, f, sort_keys=False)
     with open(save_dir / 'opt.yaml', 'w') as f:
         yaml.dump(vars(opt), f, sort_keys=False)
 
-    # Configure
+    # Configure plot variables.....
     plots = not opt.evolve  # create plots
     cuda = device.type != 'cpu'
     init_seeds(2 + rank)
@@ -83,16 +83,18 @@ def train(hyp, opt, device, tb_writer=None):
 
     # Extracting seen & unseen class names... (from data/...yaml)
     nc = 1 if opt.single_cls else int(data_dict['nc'])  # number of classes
+    
     # Checking if ZSD flag is set or not.....
     if opt.zsd:
-        names = [data_dict['all_names'][i] for i in data_dict['train_names']]
+        names = [i for i in data_dict['train_names']]
     else:
         names = ['item'] if opt.single_cls and len(data_dict['names']) != 1 else data_dict['names']  # class names
     
     # Checking class count...
     assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
-    # Using checkpointed weights.....
+    # Using checkpointed weights.....(these are model base check point weights not the supervised weights )
+    # used before zsd training...
     pretrained = weights.endswith('.pt')
     if pretrained:
         with torch_distributed_zero_first(rank):
@@ -105,6 +107,7 @@ def train(hyp, opt, device, tb_writer=None):
         model.load_state_dict(state_dict, strict=False)  # load
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
+        # if zsd, then zsd config file is loaded.....
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device)  # create
     
     with torch_distributed_zero_first(rank):
