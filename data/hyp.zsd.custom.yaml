@@ -1,0 +1,44 @@
+lr0: 0.00282  # initial learning rate (SGD=1E-2, Adam=1E-3)
+lrf: 0.1  # final OneCycleLR learning rate (lr0 * lrf)
+momentum: 0.85403  # SGD momentum/Adam beta1
+weight_decay: 0.00038  # optimizer weight decay 5e-4
+warmup_epochs: 3.0  # warmup epochs (fractions ok)
+warmup_momentum: 0.8  # warmup initial momentum
+warmup_bias_lr: 0.1  # warmup initial bias lr
+box: 0.03  # box loss gain
+cls: 0.4688  # cls loss gain
+img_distill_weight : 1.21 # distillation loss weights
+text_distill_weight : 1.05 # distillation loss weights
+cls_pw: 1.0  # cls BCELoss positive_weight
+obj: 2.67895  # obj loss gain (scale with pixels)
+temp: 3.91 # temperature parameter
+obj_pw: 1.0  # obj BCELoss positive_weight
+iou_t: 0.14671  # IoU training threshold
+anchor_t: 4.0  # anchor-multiple threshold
+# anchors: 3  # anchors per output layer (0 to ignore)
+fl_gamma: 0.0  # focal loss gamma (efficientDet default gamma=1.5)
+hsv_h: 0.0168  # image HSV-Hue augmentation (fraction)
+hsv_s: 0.7876  # image HSV-Saturation augmentation (fraction)
+hsv_v: 0.45518  # image HSV-Value augmentation (fraction)
+degrees: 0.373  # image rotation (+/- deg)
+translate: 0.16587 # image translation (+/- fraction)
+scale: 0.64818  # image scale (+/- gain)
+shear: 0.602  # image shear (+/- deg)
+perspective: 0.0  # image perspective (+/- fraction), range 0-0.001
+flipud: 0.00856  # image flip up-down (probability)
+fliplr: 0.5  # image flip left-right (probability)
+mosaic: 0.94109  # image mosaic (probability)
+mixup: 0.0  # better we avoid this for zero shot setup......
+copy_paste: 0.0  # image copy paste (probability)
+paste_in: 0.0  # image copy paste (probability), use 0 for faster training
+loss_ota: 0 # use ComputeLossOTA, use 0 for faster training (optimized transport assignment for OD some custom complex loss for better mAP)
+
+# extra functionality....
+sim_func : 0
+learnable_background : 0
+learnable_temp_scale : 0
+temp : 3.91
+contrast: 4.0
+bias : 1.5
+          
+       

@@ -257,25 +257,30 @@ class ZSD_IDetect(nn.Module):
     def __init__(self, 
                  nc=80, 
                  anchors=(), 
-                 ch=(),
                  train_text_embedding_path=None, 
                  val_text_embedding_path=None, 
                  use_bg=False,
+                 ch=(),
                  inplace = False):  # detection layer
 
         super(ZSD_IDetect, self).__init__()
         assert train_text_embedding_path and val_text_embedding_path
+
+        # loading the embeddings in proper order.....
         self.train_text_embeddings = torch.load(train_text_embedding_path).cuda()
         self.val_text_embeddings = torch.load(val_text_embedding_path).cuda()
+        
         self.bg = None
         self.text_embeddings = self.train_text_embeddings
 
         self.nc = nc  # number of classes
         self.no = nc + 5  # number of outputs per anchor
+
         self.nl = len(anchors)  # number of detection layers
         self.na = len(anchors[0]) // 2  # number of anchors
         self.grid = [torch.zeros(1)] * self.nl  # init grid
         a = torch.tensor(anchors).float().view(self.nl, -1, 2)
+
         self.register_buffer('anchors', a)  # shape(nl,na,2)
         self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
         self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
@@ -291,7 +296,9 @@ class ZSD_IDetect(nn.Module):
         for i in range(self.nl):
             x[i] = self.m[i](self.ia[i](x[i]))  # conv
             x[i] = self.im[i](x[i])
+            
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
+            # reshapping the output to appropriate dimensions....
             x[i] = x[i].view(bs, self.na, self.text_embeddings.shape[1] + 5, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
             if not self.training:  # inference
@@ -699,7 +706,13 @@ class IBin(nn.Module):
 
 
 class Model(nn.Module):
-    def __init__(self, cfg='yolor-csp-c.yaml', ch=3, nc=None, anchors=None, hyp = None):  # model, input channels, number of classes
+    def __init__(self, 
+                 cfg='yolor-csp-c.yaml', 
+                 ch=3, 
+                 nc=None, 
+                 anchors=None, 
+                 hyp = None):  # model, input channels, number of classes
+
         super(Model, self).__init__()
         self.traced = False
         if isinstance(cfg, dict):
@@ -715,13 +728,16 @@ class Model(nn.Module):
         if nc and nc != self.yaml['nc']:
             logger.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml['nc'] = nc  # override yaml value
+
+        # if supplied anchors exist then prefer them....
         if anchors:
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
             self.yaml['anchors'] = round(anchors)  # override yaml value
+
+        # Main function to read the loaded config file....
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
         self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
         self.hyp = hyp
-        # print([x.shape for x in self.forward(torch.zeros(1, ch, 64, 64))])
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
@@ -732,9 +748,11 @@ class Model(nn.Module):
             m.anchors /= m.stride.view(-1, 1, 1)
             self.stride = m.stride
             self._initialize_biases()  # only run once
-            # print('Strides: %s' % m.stride.tolist())
+
             if isinstance(m, ZSD_IDetect):
                 m.favor = torch.Tensor(hyp.get('favor')) if hyp.get('favor') else None
+
+                # type of text similarity function to be used.....
                 if hyp['sim_func'] == 0:
                     m.sim_func = SoftmaxSim(temp=hyp['temp'])
                 elif hyp['sim_func'] == 1:
@@ -962,6 +980,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
                  Ghost, GhostCSPA, GhostCSPB, GhostCSPC,
                  SwinTransformerBlock, STCSPA, STCSPB, STCSPC,
                  SwinTransformer2Block, ST2CSPA, ST2CSPB, ST2CSPC]:
+
             c1, c2 = ch[f], args[0]
             if c2 != no:  # if not output
                 c2 = make_divisible(c2 * gw, 8)

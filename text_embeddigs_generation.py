@@ -46,7 +46,7 @@ np.random.seed(seed)
 
 
 
-# loading data config file....
+# loading data config file....(order is very important to maintain)
 with open('data/zsd_coco_65.yaml') as f:
     meta = yaml.safe_load(f)
 
