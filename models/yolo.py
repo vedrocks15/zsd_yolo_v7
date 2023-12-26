@@ -40,13 +40,14 @@ class CosineScaler(nn.Module):
 class SoftmaxSim(nn.Module):
     def __init__(self, temp=3.91, eps=1e-8):
         super().__init__()
+        # trainable temperature parameter....
         self.temp = nn.Parameter(torch.Tensor([temp]), requires_grad=True)
         self.cosine_sim = DefaultCosine(eps)
         self.eval_groups = None
     
+    # simple forward inference....
     def forward(self, cls_outputs, text_embeddings, favor=None):
         output = self.cosine_sim(cls_outputs, text_embeddings, favor) * torch.exp(self.temp)
-        #torch.clip(torch.exp(self.temp), max=100)
         if getattr(self, 'eval_groups', None):
             for i in self.eval_groups:
                 output[:, i] = torch.nn.functional.softmax(output[:, i], dim=-1)
@@ -77,6 +78,7 @@ class DefaultCosine(nn.Module):
         super().__init__()
         self.eps = eps
     def forward(self, cls_outputs, text_embeddings, favor=None):
+        # function define above....
         output = sim_matrix(cls_outputs.float(), text_embeddings.float(), self.eps)
         return output
 
@@ -776,14 +778,14 @@ class Model(nn.Module):
             self._initialize_biases()  # only run once
 
             if isinstance(m, ZSD_IDetect):
+                
+                # set favor to None initially....
                 m.favor = torch.Tensor(hyp.get('favor')) if hyp.get('favor') else None
 
                 # type of text similarity function to be used.....
                 if hyp['sim_func'] == 0:
-                    tmp = SigmoidSim()
                     m.sim_func = SoftmaxSim(temp=hyp['temp'])
                 elif hyp['sim_func'] == 1:
-                    tmp = SoftmaxSim()
                     m.sim_func = SigmoidSim(hyp['contrast'], hyp['bias'])
 
 

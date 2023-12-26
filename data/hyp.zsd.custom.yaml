@@ -34,12 +34,13 @@ paste_in: 0.0  # image copy paste (probability), use 0 for faster training
 loss_ota: 0 # use ComputeLossOTA, use 0 for faster training (optimized transport assignment for OD some custom complex loss for better mAP)
 
 # extra functionality....
+normalize : 0.5
 sim_func : 0
 learnable_background : 0
-learnable_temp_scale : 0
+learnable_temp_scale : 1.0
 temp : 3.91
 contrast: 4.0
 bias : 1.5
-favour : z1.0
+favor : 1.0
           
        

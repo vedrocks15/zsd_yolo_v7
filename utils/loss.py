@@ -1751,11 +1751,13 @@ class ZSDCrossEntropy(nn.Module):
         self.img_distill_weight = hyp['img_distill_weight']
         self.text_distill_weight = hyp['text_distill_weight']
         self.sim_func = det.sim_func
-        self.self_img_loss_scalar = 0#hyp['self_img_loss_scalar']
-        self.self_text_loss_scalar = 0#hyp['self_text_loss_scalar']
-        if  False:
+        self.self_img_loss_scalar = 0 #hyp['self_img_loss_scalar']
+        self.self_text_loss_scalar = 0 #hyp['self_text_loss_scalar']
+        
+        if  hyp['normalize'] > 0:
             self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
             self.normalizer = self.normalizer / self.normalizer.mean()
+        
         self.bg = det.bg
        
     def __call__(self, cls_pred, img_targets=None, classes=None, text_embeddings=None):
@@ -1764,34 +1766,45 @@ class ZSDCrossEntropy(nn.Module):
         text_loss = 0.0
         self_label_img_loss = 0.0
         self_label_text_loss = 0.0
+
+        # self labels are not used in text classification...
         idx = classes != -1
         #Incorrect computation for img distill weight
         if (img_targets is not None) and (self.img_distill_weight > 0):
+            
+            # weighing gt & self label boxes differently....
             if len(cls_pred[idx]):
                 img_loss += torch.sum(torch.abs(cls_pred[idx] - img_targets[idx]) ** self.diff_exp)
+            
             if self.self_img_loss_scalar and len(cls_pred[torch.logical_not(idx)]):
                 self_label_img_loss = torch.sum(torch.abs(cls_pred[torch.logical_not(idx)] - img_targets[torch.logical_not(idx)]) ** self.diff_exp) * self.self_img_loss_scalar
                 img_loss += self_label_img_loss
                 self_label_img_loss = self_label_img_loss / cls_pred[torch.logical_not(idx)].numel()
+            
             img_loss = img_loss / cls_pred.numel()
-            #print(cls_pred.shape[0])
+
         if ((classes is not None)
             and (text_embeddings is not None)
             and (self.sim_func is not None)
             and (self.text_distill_weight > 0)):
+            
             if self.self_text_loss_scalar:
                 sim = self.sim_func(cls_pred, torch.cat([text_embeddings, self.bg.unsqueeze(0)], dim=0))
             else:
                 sim = self.sim_func(cls_pred, text_embeddings)
+
             classes = classes.type(torch.cuda.LongTensor)
             classes[classes < 0] = text_embeddings.shape[0] - 1
+            # only using the correct classes.....
             if len(classes[idx]) > 0:
                 text_loss += torch.nn.functional.nll_loss(torch.log(sim[idx]), classes[idx])
+            
             if self.self_text_loss_scalar and len(classes[torch.logical_not(idx)]):
                 self_label_text_loss = torch.nn.functional.nll_loss(
                     torch.log(sim[torch.logical_not(idx)]), classes[torch.logical_not(idx)]
                 ) * self.self_text_loss_scalar
                 text_loss += self_label_text_loss
+                
         return img_loss * self.img_distill_weight + text_loss * self.text_distill_weight, img_loss, text_loss, self_label_img_loss, self_label_text_loss
 
 class ZSDBinaryCrossEntropy:
@@ -1851,16 +1864,23 @@ class ComputeZSDLoss:
 
         super(ComputeZSDLoss, self).__init__()
         device = next(model.parameters()).device  # get model device
-        h = model.hyp  # hyperparameters
+       
+        # extracting model hyperparameters
+        h = model.hyp  
         self.model = model
+
+        # Objectness loss....
         BCEobj = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['obj_pw']], device=device))
         
-        # extracting properties of the final ZSDDetect() module
+        # extracting properties of the final ZSD_IDetect() module
         det = model.module.model[-1] if is_parallel(model) else model.model[-1]  
+        
+        # balancing weights in the final 3 layers....
         self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.06, .02])  # P3-P7
         self.ssi = list(det.stride).index(16) if autobalance else 0  # stride 16 index
         self.BCEobj, self.gr, self.hyp, self.autobalance = BCEobj, model.gr, h, autobalance
         
+        # Similarity Function used for text loss....
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))
             self.cls_loss = ZSDBinaryCrossEntropy(h, det, BCEcls)

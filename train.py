@@ -93,8 +93,7 @@ def train(hyp, opt, device, tb_writer=None):
     # Checking class count...
     assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
 
-    # Using checkpointed weights.....(these are model base check point weights not the supervised weights )
-    # used before zsd training...
+    # Using checkpointed weights.....(supervised weights can be used here for loading...)
     pretrained = weights.endswith('.pt')
     if pretrained:
         with torch_distributed_zero_first(rank):
@@ -220,7 +219,7 @@ def train(hyp, opt, device, tb_writer=None):
                                        'lr': hyp['lr0'] * hyp['learnable_contrast_scale']})
 
         #optimizer.add_param_group({'params': model.model[-1].bg, 'lr': hyp['lr0'] * hyp['learnable_background']})
-    print(model.model[-1].sim_func)
+
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
     logger.info('Optimizer groups: %g .bias, %g conv.weight, %g other' % (len(pg2), len(pg1), len(pg0)))
@@ -335,6 +334,7 @@ def train(hyp, opt, device, tb_writer=None):
             # Anchors
             if not opt.noautoanchor:
                 check_anchors(dataset, model=model, thr=hyp['anchor_t'], imgsz=imgsz)
+            
             model.half().float()  # pre-reduce anchor precision
 
     # DDP mode
@@ -367,6 +367,7 @@ def train(hyp, opt, device, tb_writer=None):
     # <<<<<OTA loss version of ZSD will be developed soon >>>>>>>>>.
     compute_loss_ota = ComputeLossOTA(model)  # init loss class
     #compute_loss = ComputeLoss(model)  # init loss class
+    
     compute_loss = ComputeZSDLoss(model) if opt.zsd else ComputeLoss(model) # init loss class
 
     logger.info(f'Image sizes {imgsz} train, {imgsz_test} test\n'
