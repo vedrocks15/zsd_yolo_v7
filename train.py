@@ -117,9 +117,11 @@ def train(hyp, opt, device, tb_writer=None):
     train_path = data_dict['train']
     test_path = data_dict['val']
 
-     #nc = model.model[-1].text_embeddings.shape[0]
+    # loading the supervised weights from seen class training.....
     if opt.zsd and opt.initial_bg_path:
         model.model[-1].bg = nn.Parameter(torch.load(opt.initial_bg_path, map_location=device), requires_grad=True)
+    
+    
     # Freeze
     freeze = [f'model.{x}.' for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # parameter names to freeze (full or partial)
     for k, v in model.named_parameters():
@@ -210,6 +212,7 @@ def train(hyp, opt, device, tb_writer=None):
         if hyp['sim_func'] == 0:
             optimizer.add_param_group({'params': model.model[-1].sim_func.temp, 
                                        'lr': hyp['lr0'] * hyp['learnable_temp_scale']})
+        
         elif hyp['sim_func'] == 1:
             optimizer.add_param_group({'params': model.model[-1].sim_func.cosine_scalar.shift, 
                                        'lr': hyp['lr0'] * hyp['learnable_shift_scale']})
@@ -226,6 +229,7 @@ def train(hyp, opt, device, tb_writer=None):
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
     # https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#OneCycleLR
     intended_epochs = opt.canonical_epochs if opt.evolve else epochs
+    
     if opt.linear_lr:
         lf = lambda x: (1 - x / (intended_epochs - 1)) * (1.0 - hyp['lrf']) + hyp['lrf']  # linear
     else:
@@ -369,8 +373,12 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Using {dataloader.num_workers} dataloader workers\n'
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
+    
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
+        
+        # updates the number of classes in the prediction head...
         model.train()
+        
         # Update image weights (optional)
         if opt.image_weights:
             # Generate indices
@@ -385,23 +393,29 @@ def train(hyp, opt, device, tb_writer=None):
                 if rank != 0:
                     dataset.indices = indices.cpu().numpy()
 
-        # Update mosaic border
-        # b = int(random.uniform(0.25 * imgsz, 0.75 * imgsz + gs) // gs * gs)
-        # dataset.mosaic_border = [b - imgsz, -b]  # height, width borders
-        mloss = torch.zeros(8 if opt.zsd else 4, device=device)   # mean losses
+        # mean losses
+        mloss = torch.zeros(8 if opt.zsd else 4, device=device)  
+        # multi gpu data loading....
         if rank != -1:
             dataloader.sampler.set_epoch(epoch)
         pbar = enumerate(dataloader)
+        
         if opt.zsd:
             logger.info(('\n' + '%10s' * 11) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'img_cls', 'text_cls', 'simg_cls', 'stext_cls', 'total', 'labels'))
         else:
             logger.info(('\n' + '%10s' * 8) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'total', 'labels', 'img_size'))
+       
         if rank in [-1, 0]:
             pbar = tqdm(pbar, total=nb)  # progress bar
+        
+        # initializing optimizer...
         optimizer.zero_grad()
         for i, (imgs, targets, paths, _) in pbar:  # batch -------------------------------------------------------------
-            ni = i + nb * epoch  # number integrated batches (since train start)
+            
+            # number integrated batches (since train start)
+            ni = i + nb * epoch  
             imgs = imgs.to(device, non_blocking=True).float() / 255.0  # uint8 to float32, 0-255 to 0.0-1.0
+            
             # Warmup
             if ni <= nw:
                 xi = [0, nw]  # x interp
@@ -433,9 +447,11 @@ def train(hyp, opt, device, tb_writer=None):
                 if opt.quad:
                     loss *= 4.
                 # Divergence Flag       
+            
             if loss.isnan():
                 print("Training has diverged. Exiting Trial")
                 return (0, ) * (11 if opt.zsd else 7)
+            
             # Backward
             scaler.scale(loss).backward()
 
@@ -483,6 +499,7 @@ def train(hyp, opt, device, tb_writer=None):
             # mAP
             ema.update_attr(model, include=['yaml', 'nc', 'hyp', 'gr', 'names', 'stride', 'class_weights'])
             final_epoch = epoch + 1 == epochs
+            
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
                 results, maps, times =test_zsd.test(data_dict,

@@ -274,6 +274,7 @@ class ZSD_IDetect(nn.Module):
         self.text_embeddings = self.train_text_embeddings
 
         self.nc = nc  # number of classes
+        # for zsd case......
         self.no = nc + 5  # number of outputs per anchor
 
         self.nl = len(anchors)  # number of detection layers
@@ -299,13 +300,16 @@ class ZSD_IDetect(nn.Module):
             
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             # reshapping the output to appropriate dimensions....
-            x[i] = x[i].view(bs, self.na, self.text_embeddings.shape[1] + 5, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
             if not self.training:  # inference
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
                     self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
-
+                
+                # applying sigmoid on first 5 outputs.....
                 y = x[i][:, :, :, :, :5].sigmoid()
+                
+                # eliminate grid sensitivity...
                 if self.inplace:
                     y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i]) * self.stride[i]  # xy
                     y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
@@ -317,7 +321,9 @@ class ZSD_IDetect(nn.Module):
                 #ENSURE THIS MAPS EVERYTHING BACK TO THEIR ORIGINAL POSITIONS PROPERLY
                 y = y.reshape(-1, 5)
                 cls_outputs = x[i][:, :, :, :, 5:].reshape(-1, self.text_embeddings.shape[1])
-                cls_outputs = self.sim_func(cls_outputs, self.text_embeddings, favor=self.favor.to(self.text_embeddings.device) if self.favor != None else None)
+                cls_outputs = self.sim_func(cls_outputs, 
+                                            self.text_embeddings, 
+                                            favor=self.favor.to(self.text_embeddings.device) if self.favor != None else None)
                 y = torch.cat([y, cls_outputs], dim=-1)
                 z.append(y.view(bs, -1, self.no))
 

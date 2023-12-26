@@ -98,6 +98,7 @@ def zeroshot_classifier(classnames,
             class_embedding /= class_embedding.norm()
             zeroshot_weights.append(class_embedding)
 
+        # emb_dim, class_cnt
         zeroshot_weights = torch.stack(zeroshot_weights, dim=1).cuda()
         print("Final shape : ",zeroshot_weights.shape)
     return zeroshot_weights
