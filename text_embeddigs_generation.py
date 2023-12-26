@@ -1,64 +1,68 @@
-"""
-Script to generate text embeddings for building ZSD yolo
-This should be run on the machine where the base open world model would be trained
-so that target & source embeddings are computed on the same GPU platform.
-
-The paths in the code are mainly for the YOLO format dataset.
-
-Changelog :
-
-0.0.1 : Version 1
-"""
-
-# Basic Imports
-import numpy as np
-import random 
-import os
-from scipy import spatial
-import json
-import requests
-import collections
-from tqdm import tqdm
-import shutil
-import collections
-import torch
-import logging
-import math
-import json
-import time
-from copy import deepcopy
-from pathlib import Path
-from threading import Thread
-from importlib import reload
-
-# CLIP imports (instead of Torch we use the hugging face repo for clip)
-from transformers import CLIPProcessor, CLIPModel
-from torchvision import models
-import pickle
-import yaml
-from nltk.corpus import wordnet
-
-
-# code reproducability 
-seed = 100
-random.seed(seed)
-np.random.seed(seed)
+(yolo_open_world) vejoshi@luban:~/yolo_open_world/zsd_yolo_v7$ vim text_embeddigs_generation.py 
 
 
 
-# loading data config file....(order is very important to maintain)
-with open('data/zsd_coco_65.yaml') as f:
-    meta = yaml.safe_load(f)
 
-# Loading names of classes.....
-unseen_names = [i for i in meta['unseen_class']]
-seen_names = [i for i in meta['seen_class']]
-all_names = seen_names + unseen_names
 
-# loading word definitions for better text embeddings...
-defs = {i: wordnet.synsets(i)[0].definition() if len(wordnet.synsets(i)) else '' for i in all_names}
 
-# giving more context to certain names for better embedding generation....
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 unseen_names[10] = 'hotdog'
 unseen_names[12] = 'computer mouse'
 
@@ -79,25 +83,27 @@ clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 clip_model = clip_model.to(device)
 
 # helper function
-def zeroshot_classifier(classnames, 
+def zeroshot_classifier(classnames,
                         templates):
-    
+
     with torch.no_grad():
         zeroshot_weights = []
         for classname in tqdm(classnames):
             temp_texts = [template.format(classname) for template in templates] #format with class
-            text_batch = clip_processor(text = temp_texts, 
-                                        images = [[np.random.rand(225,225,3)]], 
-                                        return_tensors="pt", 
+            text_batch = clip_processor(text = temp_texts,
+                                        images = [np.ones((225,225,3))*30],
+                                        return_tensors="pt",
                                         padding=True)
-            op = model(**text_batch)
-            class_embedding = op.text_embeds[0]
+            text_batch.to(device)
+            op = clip_model(**text_batch)
+            class_embeddings = op.text_embeds
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
             class_embedding = class_embeddings.mean(dim=0)
             class_embedding /= class_embedding.norm()
             zeroshot_weights.append(class_embedding)
 
         zeroshot_weights = torch.stack(zeroshot_weights, dim=1).cuda()
+        print("Weights shape :",zeroshot_weights.shape)
     return zeroshot_weights
 
 
@@ -121,3 +127,4 @@ torch.save(all_text_embeddings.T, '/home/AD/vejoshi/yolo_open_world/yolo_coco_da
 
 
 
+                                                                                                                                                                                                    125,0-1       Bot
