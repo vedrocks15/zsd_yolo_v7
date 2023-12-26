@@ -784,7 +784,7 @@ class LoadZSD(Dataset):  # for training/testing
             self.label_files = img2label_paths(self.img_files, self.image_folder, self.annot_folder, 'pt')  # labels
 
         # Load labels and shapes.  If you don't have enough RAM ¯\_(ツ)_/¯ (load paths in this case)
-        self.labels = [torch.load(i).numpy() for i in tqdm(self.label_files)]
+        self.labels = [torch.load(i).detach().numpy() for i in tqdm(self.label_files)]
         self.segments = [[] for i in range(len(self.labels))] # ADD SUPPORT FOR SEGEMENT ANNOTATIONS LATER
         self.shapes = np.array([exif_size(Image.open(i)) for i in tqdm(self.img_files)])
 
