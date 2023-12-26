@@ -7,7 +7,6 @@ import torch.nn.functional as F
 from utils.general import bbox_iou, bbox_alpha_iou, box_iou, box_giou, box_diou, box_ciou, xywh2xyxy
 from utils.torch_utils import is_parallel
 from models.yolo import *
-from models.yolo import SigmoidSim, SoftmaxSim
 
 
 

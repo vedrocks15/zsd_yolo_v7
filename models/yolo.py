@@ -780,8 +780,10 @@ class Model(nn.Module):
 
                 # type of text similarity function to be used.....
                 if hyp['sim_func'] == 0:
+                    tmp = SigmoidSim()
                     m.sim_func = SoftmaxSim(temp=hyp['temp'])
                 elif hyp['sim_func'] == 1:
+                    tmp = SoftmaxSim()
                     m.sim_func = SigmoidSim(hyp['contrast'], hyp['bias'])
 
 
