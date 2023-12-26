@@ -764,7 +764,8 @@ class LoadZSD(Dataset):  # for training/testing
         if cross_check_labels:
             logging.info('Removing images without annotations.')
             label_names = []
-            label_path = path.replace(os.sep + self.image_folder + os.sep, os.sep + self.annot_folder + os.sep)
+            label_path = path.replace( "/" + self.image_folder + "/", os.sep + self.annot_folder + os.sep)
+
             print(label_path)
             for name in tqdm(os.listdir(label_path)):
                 try:
