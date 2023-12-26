@@ -87,7 +87,7 @@ def zeroshot_classifier(classnames,
         for classname in tqdm(classnames):
             temp_texts = [template.format(classname) for template in templates] #format with class
             text_batch = clip_processor(text = temp_texts, 
-                                        images = [np.ones(225,225,3)*30], 
+                                        images = [np.ones((225,225,3))*30], 
                                         return_tensors="pt", 
                                         padding=True)
             text_batch.to(device)                          
