@@ -730,7 +730,7 @@ class LoadZSD(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path[:-1] if path[-1] == '/' else path
-        self.image_folder = path.split('/')[-1]
+        self.image_folder = "images"
         self.annot_folder = annot_folder
 
         # Image directory testing....
@@ -774,6 +774,7 @@ class LoadZSD(Dataset):  # for training/testing
                 except Exception as e:
                     print(os.path.join(label_path, name), e)
                     pass
+
             print(f'Originally: {len(self.img_files)} train images.  Found only {len(label_names)} label files.')
             self.img_files = sorted([i for i in self.img_files if i.split(os.sep)[-1].split('.')[0] in label_names])    
 
