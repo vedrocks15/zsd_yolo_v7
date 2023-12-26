@@ -15,41 +15,6 @@ def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#iss
     return 1.0 - 0.5 * eps, 0.5 * eps
 
 
-class SoftmaxSim(nn.Module):
-    def __init__(self, temp=3.91, eps=1e-8):
-        super().__init__()
-        self.temp = nn.Parameter(torch.Tensor([temp]), requires_grad=True)
-        self.cosine_sim = DefaultCosine(eps)
-        self.eval_groups = None
-    
-    def forward(self, cls_outputs, text_embeddings, favor=None):
-        output = self.cosine_sim(cls_outputs, text_embeddings, favor) * torch.exp(self.temp)
-        #torch.clip(torch.exp(self.temp), max=100)
-        if getattr(self, 'eval_groups', None):
-            for i in self.eval_groups:
-                output[:, i] = torch.nn.functional.softmax(output[:, i], dim=-1)
-        else:
-            output = torch.nn.functional.softmax(output, dim=-1)
-        return output
-    
-    def set_eval_groups(self, groups):
-        if not isinstance(groups[0], torch.Tensor):
-            groups = [torch.Tensor(i) for i in groups]
-        self.eval_groups = [i.type(torch.LongTensor) for i in groups]
-
-class SigmoidSim(nn.Module):
-    def __init__(self, contrast=10.0, shift=6.0, eps=1e-8):
-        super().__init__()
-        self.cosine_scalar = CosineScaler(contrast, shift)
-        self.cosine_sim = DefaultCosine(eps)
-    def forward(self, cls_outputs, text_embeddings, favor=None):
-        output = self.cosine_sim(cls_outputs.float(), text_embeddings.float(), favor)
-        output = self.cosine_scalar(output)
-        if not self.training:
-            output = torch.sigmoid(output)
-        return output
-
-
 class BCEBlurWithLogitsLoss(nn.Module):
     # BCEwithLogitLoss() with reduced missing label effects.
     def __init__(self, alpha=0.05):
@@ -1747,22 +1712,29 @@ class ZSDCrossEntropy(nn.Module):
     '''
     def __init__(self, hyp, det):
         super().__init__()
-        self.diff_exp = 1 #hyp['diff_exp']
+        self.diff_exp = hyp['diff_exp']
         self.img_distill_weight = hyp['img_distill_weight']
         self.text_distill_weight = hyp['text_distill_weight']
         self.sim_func = det.sim_func
-        self.self_img_loss_scalar = 0 #hyp['self_img_loss_scalar']
-        self.self_text_loss_scalar = 0 #hyp['self_text_loss_scalar']
         
+        self.self_img_loss_scalar = hyp['self_img_loss_scalar']
+        self.self_text_loss_scalar = hyp['self_text_loss_scalar']
+        
+        # no clue what is the purpose of this....
         if hyp.get('normalize'):
             if  hyp['normalize'] > 0:
                 self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
                 self.normalizer = self.normalizer / self.normalizer.mean()
         
+        # no clue....
         self.bg = det.bg
        
     def __call__(self, cls_pred, img_targets=None, classes=None, text_embeddings=None):
+        
+        # throw an error if anything is missing....
         assert (img_targets is not None) or ((classes is not None) and (text_embeddings is not None))
+        
+        # dividing the loss components....
         img_loss = 0.0
         text_loss = 0.0
         self_label_img_loss = 0.0
@@ -1770,13 +1742,14 @@ class ZSDCrossEntropy(nn.Module):
 
         # self labels are not used in text classification...
         idx = classes != -1
-        #Incorrect computation for img distill weight
+        
+        # image distillation loss...
         if (img_targets is not None) and (self.img_distill_weight > 0):
             
             # weighing gt & self label boxes differently....
             if len(cls_pred[idx]):
                 img_loss += torch.sum(torch.abs(cls_pred[idx] - img_targets[idx]) ** self.diff_exp)
-            
+            # self label loss
             if self.self_img_loss_scalar and len(cls_pred[torch.logical_not(idx)]):
                 self_label_img_loss = torch.sum(torch.abs(cls_pred[torch.logical_not(idx)] - img_targets[torch.logical_not(idx)]) ** self.diff_exp) * self.self_img_loss_scalar
                 img_loss += self_label_img_loss
@@ -1784,18 +1757,22 @@ class ZSDCrossEntropy(nn.Module):
             
             img_loss = img_loss / cls_pred.numel()
 
+        # text distillation loss...
         if ((classes is not None)
             and (text_embeddings is not None)
             and (self.sim_func is not None)
             and (self.text_distill_weight > 0)):
             
+            # self labelling loss...
             if self.self_text_loss_scalar:
+                # learnable background vector...
                 sim = self.sim_func(cls_pred, torch.cat([text_embeddings, self.bg.unsqueeze(0)], dim=0))
             else:
                 sim = self.sim_func(cls_pred, text_embeddings)
 
             classes = classes.type(torch.cuda.LongTensor)
             classes[classes < 0] = text_embeddings.shape[0] - 1
+            
             # only using the correct classes.....
             if len(classes[idx]) > 0:
                 text_loss += torch.nn.functional.nll_loss(torch.log(sim[idx]), classes[idx])
@@ -1885,11 +1862,11 @@ class ComputeZSDLoss:
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))
             self.cls_loss = ZSDBinaryCrossEntropy(h, det, BCEcls)
-            # elif isinstance(det.sim_func, SoftmaxSim):
-        else:
+        elif sinstance(det.sim_func, SoftmaxSim)::
             self.cls_loss = ZSDCrossEntropy(h, det)
             if h['learnable_background']:
                 self.cls_loss.bg = det.bg
+        
         for k in 'na', 'nc', 'nl', 'anchors':
             setattr(self, k, getattr(det, k))
 

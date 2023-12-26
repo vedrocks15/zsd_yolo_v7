@@ -40,4 +40,7 @@ learnable_temp_scale : 1.0
 temp : 3.91
 contrast: 4.0
 bias : 1.5     
+diff_exp : 1 # power for l1, l2 .... loss
+self_img_loss_scalar : 0.5   # scalar multiplicative constants for self labels
+self_text_loss_scalar : 0  # scalar multiplicative constants for self labels
        

@@ -98,27 +98,34 @@ def train(hyp, opt, device, tb_writer=None):
     # Using checkpointed weights.....(supervised weights can be used here for loading...)
     pretrained = weights.endswith('.pt')
     if pretrained:
+        # supervised weights loading.....
         with torch_distributed_zero_first(rank):
             attempt_download(weights)  # download if not found locally
         ckpt = torch.load(weights, map_location=device)  # load checkpoint
-        model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device)  # create
-        exclude = ['anchor'] if (opt.cfg or hyp.get('anchors')) and not opt.resume else []  # exclude keys
+        
+        # building open world model (nc shape is handled internally)
+        model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device) 
+
+        # exclude keys
+        exclude = ['anchor'] if (opt.cfg or hyp.get('anchors')) and not opt.resume else []  
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
         model.load_state_dict(state_dict, strict=False)  # load
+
+        # only load overlapping weight keys....
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
         # if zsd, then zsd config file is loaded.....
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device)  # create
     
     with torch_distributed_zero_first(rank):
-        check_dataset(data_dict)  # check
-    print(model.model[-1])
+        check_dataset(data_dict) 
+
     # Path names....
     train_path = data_dict['train']
     test_path = data_dict['val']
 
-    # loading the supervised weights from seen class training.....
+    # loading the supervised weights from seen class training ????
     if opt.zsd and opt.initial_bg_path:
         model.model[-1].bg = nn.Parameter(torch.load(opt.initial_bg_path, map_location=device), requires_grad=True)
     
@@ -137,7 +144,8 @@ def train(hyp, opt, device, tb_writer=None):
     hyp['weight_decay'] *= total_batch_size * accumulate / nbs  # scale weight_decay
     logger.info(f"Scaled weight_decay = {hyp['weight_decay']}")
 
-    pg0, pg1, pg2 = [], [], []  # optimizer parameter groups
+    # optimizer parameter groups
+    pg0, pg1, pg2 = [], [], []  
     for k, v in model.named_modules():
         if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):
             pg2.append(v.bias)  # biases
@@ -145,6 +153,7 @@ def train(hyp, opt, device, tb_writer=None):
             pg0.append(v.weight)  # no decay
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)  # apply decay
+       
         # additional YOLOv7 Params compated to yoloV5
         if hasattr(v, 'im'):
             if hasattr(v.im, 'implicit'):           
@@ -203,6 +212,7 @@ def train(hyp, opt, device, tb_writer=None):
             if hasattr(v.rbr_dense, 'vector'):   
                 pg0.append(v.rbr_dense.vector)
 
+    # selecting optimizer....
     if opt.adam:
         optimizer = optim.Adam(pg0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
@@ -224,13 +234,14 @@ def train(hyp, opt, device, tb_writer=None):
 
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
+    
     logger.info('Optimizer groups: %g .bias, %g conv.weight, %g other' % (len(pg2), len(pg1), len(pg0)))
     del pg0, pg1, pg2
 
     # Scheduler https://arxiv.org/pdf/1812.01187.pdf
     # https://pytorch.org/docs/stable/_modules/torch/optim/lr_scheduler.html#OneCycleLR
     intended_epochs = opt.canonical_epochs if opt.evolve else epochs
-    
+    # Learning rate schedule...
     if opt.linear_lr:
         lf = lambda x: (1 - x / (intended_epochs - 1)) * (1.0 - hyp['lrf']) + hyp['lrf']  # linear
     else:
@@ -274,7 +285,7 @@ def train(hyp, opt, device, tb_writer=None):
     nl = model.model[-1].nl  # number of detection layers (used for scaling hyp['obj'])
     imgsz, imgsz_test = [check_img_size(x, gs) for x in opt.img_size]  # verify imgsz are gs-multiples
 
-    # DP mode
+    # DDP mode
     if cuda and rank == -1 and torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model)
 
@@ -304,6 +315,8 @@ def train(hyp, opt, device, tb_writer=None):
 
     mlc = np.concatenate(dataset.labels, 0)[:, 0].max()  # max label class
     nb = len(dataloader)  # number of batches
+
+    # sanity check....
     assert mlc < nc, 'Label class %g exceeds nc=%g in %s. Possible class labels are 0-%g' % (mlc, nc, opt.data, nc - 1)
 
     # Process 0
@@ -325,9 +338,8 @@ def train(hyp, opt, device, tb_writer=None):
 
         if not opt.resume:
             labels = np.concatenate([i[:, :5] for i in dataset.labels], 0)
-            c = torch.tensor(labels[:, 0])  # classes
-            # cf = torch.bincount(c.long(), minlength=nc) + 1.  # frequency
-            # model._initialize_biases(cf.to(device))
+            # classes
+            c = torch.tensor(labels[:, 0])  
             if plots:
                 #plot_labels(labels, names, save_dir, loggers)
                 if tb_writer:
@@ -368,8 +380,8 @@ def train(hyp, opt, device, tb_writer=None):
 
     # <<<<<OTA loss version of ZSD will be developed soon >>>>>>>>>.
     compute_loss_ota = ComputeLossOTA(model)  # init loss class
-    #compute_loss = ComputeLoss(model)  # init loss class
-    
+ 
+    # ZSD loss compute....
     compute_loss = ComputeZSDLoss(model) if opt.zsd else ComputeLoss(model) # init loss class
 
     logger.info(f'Image sizes {imgsz} train, {imgsz_test} test\n'
