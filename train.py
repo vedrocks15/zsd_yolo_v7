@@ -679,7 +679,7 @@ if __name__ == '__main__':
     parser.add_argument('--favor', default=None, type=float)
     parser.add_argument('--plot-conf', default=0.25, type=float)
     parser.add_argument('--normalizer-path', default=None, type=str)
-    parser.add_argument('--initial-bg-path', default=None, type=str. help='default weights : supervised yolo model')
+    parser.add_argument('--initial-bg-path', default=None, type=str, help='default weights : supervised yolo model')
     parser.add_argument('--eval-by-splits', default=False, action='store_true')
     parser.add_argument('--agnostic-nms', default=False, action='store_true')
     parser.add_argument('--seed', default=-1, type=int)
@@ -777,7 +777,8 @@ if __name__ == '__main__':
                 'mixup': (1, 0.0, 1.0),   # image mixup (probability)
                 'copy_paste': (1, 0.0, 1.0),  # segment copy-paste (probability)
                 'paste_in': (1, 0.0, 1.0)}    # segment copy-paste (probability)
-            '''
+    
+
             # Taken from yolov5_zsd
             meta = {
                     'anchor_t': (1, 2.0, 8.0),
@@ -820,7 +821,8 @@ if __name__ == '__main__':
                     'warmup_momentum': (0, 0.5, 0.5),
                     'weight_decay': (1, 0.0, 0.001),  # optimizer weight decay
                     }
-        
+        '''
+        meta = {}
         with open(opt.hyp, errors='ignore') as f:
             hyp = yaml.safe_load(f)  # load hyps dict
             if 'anchors' not in hyp:  # anchors commented in hyp.yaml
