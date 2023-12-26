@@ -40,5 +40,6 @@ learnable_temp_scale : 0
 temp : 3.91
 contrast: 4.0
 bias : 1.5
+favour : 1.0
           
        
