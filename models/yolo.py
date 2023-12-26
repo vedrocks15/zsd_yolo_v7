@@ -298,7 +298,7 @@ class ZSD_IDetect(nn.Module):
 
         self.nc = self.text_embeddings.shape[0]  # number of classes
         # for zsd case......
-        self.no = nc + 5  # number of outputs per anchor
+        self.no = self.nc  + 5  # number of outputs per anchor
 
         self.nl = len(anchors)  # number of detection layers
         self.na = len(anchors[0]) // 2  # number of anchors
