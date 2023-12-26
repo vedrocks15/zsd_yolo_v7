@@ -795,6 +795,7 @@ class LoadZSD(Dataset):  # for training/testing
         self.batch = bi  # batch index of image
         self.n = n
         self.indices = range(n)
+        
 
         if self.rect:
             # Sort by aspect ratio
@@ -822,6 +823,8 @@ class LoadZSD(Dataset):  # for training/testing
 
             # Not using cache images definition.....
 
+        self.imgs = [None] * n
+        
     def __len__(self):
         return len(self.img_files)  
 
