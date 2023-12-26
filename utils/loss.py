@@ -1754,9 +1754,10 @@ class ZSDCrossEntropy(nn.Module):
         self.self_img_loss_scalar = 0 #hyp['self_img_loss_scalar']
         self.self_text_loss_scalar = 0 #hyp['self_text_loss_scalar']
         
-        if  hyp['normalize'] > 0:
-            self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
-            self.normalizer = self.normalizer / self.normalizer.mean()
+        if hyp.get('normalize'):
+            if  hyp['normalize'] > 0:
+                self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
+                self.normalizer = self.normalizer / self.normalizer.mean()
         
         self.bg = det.bg
        
@@ -1804,7 +1805,7 @@ class ZSDCrossEntropy(nn.Module):
                     torch.log(sim[torch.logical_not(idx)]), classes[torch.logical_not(idx)]
                 ) * self.self_text_loss_scalar
                 text_loss += self_label_text_loss
-                
+
         return img_loss * self.img_distill_weight + text_loss * self.text_distill_weight, img_loss, text_loss, self_label_img_loss, self_label_text_loss
 
 class ZSDBinaryCrossEntropy:

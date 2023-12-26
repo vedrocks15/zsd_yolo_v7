@@ -767,7 +767,7 @@ class LoadZSD(Dataset):  # for training/testing
             label_path = path.replace(self.image_folder, self.annot_folder)
 
             print(label_path)
-            for name in tqdm(os.listdir(label_path)):
+            for name in os.listdir(label_path):
                 try:
                     image_embeddings = torch.load(os.path.join(label_path, name))
                     #if len(image_embeddings):
@@ -824,7 +824,7 @@ class LoadZSD(Dataset):  # for training/testing
             # Not using cache images definition.....
 
         self.imgs = [None] * n
-        
+
     def __len__(self):
         return len(self.img_files)  
 
