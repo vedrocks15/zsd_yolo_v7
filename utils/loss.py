@@ -1933,6 +1933,8 @@ class ComputeZSDLoss:
         gain = torch.ones(7, device=targets.device)  # normalized to gridspace gain
         ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
         targets = torch.cat((targets[:, :6].repeat(na, 1, 1), ai[:, :, None], targets[:, 6:].repeat(na, 1, 1)), 2)  # append anchor indices
+
+
        
         g = 0.5  # bias
         off = torch.tensor([[0, 0],
@@ -1971,8 +1973,10 @@ class ComputeZSDLoss:
             gi, gj = gij.T  # grid xy indices
             # Append
             a = t[:, 6].long()  # anchor indices
-            indices.append((b, a, gj.clamp_(0, gain[3] - 1), gi.clamp_(0, gain[2] - 1)))  # image, anchor, grid indices
+            indices.append((b, a, int(gj.clamp_(0, gain[3] - 1)), int(gi.clamp_(0, gain[2] - 1))))  # image, anchor, grid indices
             tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
             anch.append(anchors[a])  # anchors'
             tcls.append(torch.cat([c.unsqueeze(-1), t[:, 7:]], dim=1))  # class
+
+
         return tcls, tbox, indices, anch
