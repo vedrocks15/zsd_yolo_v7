@@ -296,7 +296,7 @@ class ZSD_IDetect(nn.Module):
         self.text_embeddings = self.train_text_embeddings
 
 
-        self.nc = nc  # number of classes
+        self.nc = self.text_embeddings.shape[0]  # number of classes
         # for zsd case......
         self.no = nc + 5  # number of outputs per anchor
 
