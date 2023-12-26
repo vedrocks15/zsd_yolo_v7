@@ -296,7 +296,7 @@ class ZSD_IDetect(nn.Module):
         self.text_embeddings = self.train_text_embeddings
 
 
-        self.nc = self.text_embeddings.shape[0]  # number of classes
+        self.nc = self.text_embeddings.shape[1]  # number of classes
         # for zsd case......
         self.no = self.nc  + 5  # number of outputs per anchor
 
@@ -758,7 +758,7 @@ class Model(nn.Module):
         if nc and nc != self.yaml['nc']:
             logger.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml['nc'] = nc  # override yaml value
-        print(self.yaml['nc'])
+
         # if supplied anchors exist then prefer them....
         if anchors:
             logger.info(f'Overriding model.yaml anchors with anchors={anchors}')
@@ -771,6 +771,7 @@ class Model(nn.Module):
 
         # Build strides, anchors
         m = self.model[-1]  # Detect()
+        
         if isinstance(m, Detect) or isinstance(m, ZSD_IDetect):
             s = 256  # 2x min stride
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
