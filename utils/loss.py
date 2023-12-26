@@ -1973,7 +1973,7 @@ class ComputeZSDLoss:
             gi, gj = gij.T  # grid xy indices
             # Append
             a = t[:, 6].long()  # anchor indices
-            indices.append((b, a, int(gj.clamp_(0, gain[3] - 1)), int(gi.clamp_(0, gain[2] - 1))))  # image, anchor, grid indices
+            indices.append((b, a, gj.clamp_(0, int(gain[3] - 1)), gi.clamp_(0, int(gain[2] - 1))))  # image, anchor, grid indices
             tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
             anch.append(anchors[a])  # anchors'
             tcls.append(torch.cat([c.unsqueeze(-1), t[:, 7:]], dim=1))  # class
