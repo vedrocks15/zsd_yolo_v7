@@ -1747,13 +1747,13 @@ class ZSDCrossEntropy(nn.Module):
     '''
     def __init__(self, hyp, det):
         super().__init__()
-        self.diff_exp = hyp['diff_exp']
+        self.diff_exp = 1 #hyp['diff_exp']
         self.img_distill_weight = hyp['img_distill_weight']
         self.text_distill_weight = hyp['text_distill_weight']
         self.sim_func = det.sim_func
-        self.self_img_loss_scalar = hyp['self_img_loss_scalar']
-        self.self_text_loss_scalar = hyp['self_text_loss_scalar']
-        if hyp['normalize'] > 0:
+        self.self_img_loss_scalar = 0#hyp['self_img_loss_scalar']
+        self.self_text_loss_scalar = 0#hyp['self_text_loss_scalar']
+        if  False:
             self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
             self.normalizer = self.normalizer / self.normalizer.mean()
         self.bg = det.bg
@@ -1864,7 +1864,8 @@ class ComputeZSDLoss:
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))
             self.cls_loss = ZSDBinaryCrossEntropy(h, det, BCEcls)
-        elif isinstance(det.sim_func, SoftmaxSim):
+            # elif isinstance(det.sim_func, SoftmaxSim):
+        else:
             self.cls_loss = ZSDCrossEntropy(h, det)
             if h['learnable_background']:
                 self.cls_loss.bg = det.bg
@@ -1902,7 +1903,7 @@ class ComputeZSDLoss:
                 # Classification
                 if self.nc > 1:  # cls loss (only if multiple classes)
                     lcls_out = self.cls_loss(ps[:, 5:], tcls[i][:, 1:], tcls[i][:, 0],
-                                        self.model.model[-1].text_embeddings)
+                                        self.model.module.model[-1].text_embeddings)
                     for j in range(len(lcls_items)):
                         lcls_items[j] += lcls_out[j]
                    

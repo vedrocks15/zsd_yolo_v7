@@ -220,7 +220,7 @@ def train(hyp, opt, device, tb_writer=None):
                                        'lr': hyp['lr0'] * hyp['learnable_contrast_scale']})
 
         #optimizer.add_param_group({'params': model.model[-1].bg, 'lr': hyp['lr0'] * hyp['learnable_background']})
-    
+    print(model.model[-1].sim_func)
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
     optimizer.add_param_group({'params': pg2})  # add pg2 (biases)
     logger.info('Optimizer groups: %g .bias, %g conv.weight, %g other' % (len(pg2), len(pg1), len(pg0)))
