@@ -59,6 +59,19 @@ class SoftmaxSim(nn.Module):
             groups = [torch.Tensor(i) for i in groups]
         self.eval_groups = [i.type(torch.LongTensor) for i in groups]
 
+class SigmoidSim(nn.Module):
+    def __init__(self, contrast=10.0, shift=6.0, eps=1e-8):
+        super().__init__()
+        self.cosine_scalar = CosineScaler(contrast, shift)
+        self.cosine_sim = DefaultCosine(eps)
+    def forward(self, cls_outputs, text_embeddings, favor=None):
+        output = self.cosine_sim(cls_outputs.float(), text_embeddings.float(), favor)
+        output = self.cosine_scalar(output)
+        if not self.training:
+            output = torch.sigmoid(output)
+        return output
+
+
 class DefaultCosine(nn.Module):
     def __init__(self, eps=1e-8):
         super().__init__()
