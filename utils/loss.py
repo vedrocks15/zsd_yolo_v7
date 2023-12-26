@@ -9,6 +9,51 @@ from utils.torch_utils import is_parallel
 from models.yolo import *
 
 
+class SoftmaxSim(nn.Module):
+    def __init__(self, temp=3.91, eps=1e-8):
+        super().__init__()
+        # trainable temperature parameter....
+        self.temp = nn.Parameter(torch.Tensor([temp]), requires_grad=True)
+        self.cosine_sim = DefaultCosine(eps)
+        self.eval_groups = None
+    
+    # simple forward inference....
+    def forward(self, cls_outputs, text_embeddings, favor=None):
+        output = self.cosine_sim(cls_outputs, text_embeddings, favor) * torch.exp(self.temp)
+        if getattr(self, 'eval_groups', None):
+            for i in self.eval_groups:
+                output[:, i] = torch.nn.functional.softmax(output[:, i], dim=-1)
+        else:
+            output = torch.nn.functional.softmax(output, dim=-1)
+        return output
+    
+    def set_eval_groups(self, groups):
+        if not isinstance(groups[0], torch.Tensor):
+            groups = [torch.Tensor(i) for i in groups]
+        self.eval_groups = [i.type(torch.LongTensor) for i in groups]
+
+class SigmoidSim(nn.Module):
+    def __init__(self, contrast=10.0, shift=6.0, eps=1e-8):
+        super().__init__()
+        self.cosine_scalar = CosineScaler(contrast, shift)
+        self.cosine_sim = DefaultCosine(eps)
+    def forward(self, cls_outputs, text_embeddings, favor=None):
+        output = self.cosine_sim(cls_outputs.float(), text_embeddings.float(), favor)
+        output = self.cosine_scalar(output)
+        if not self.training:
+            output = torch.sigmoid(output)
+        return output
+
+
+class DefaultCosine(nn.Module):
+    def __init__(self, eps=1e-8):
+        super().__init__()
+        self.eps = eps
+    def forward(self, cls_outputs, text_embeddings, favor=None):
+        # function define above....
+        output = sim_matrix(cls_outputs.float(), text_embeddings.float(), self.eps)
+        return output
+
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
     # return positive, negative label smoothing BCE targets
