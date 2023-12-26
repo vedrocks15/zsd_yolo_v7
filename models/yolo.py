@@ -297,6 +297,7 @@ class ZSD_IDetect(nn.Module):
 
 
         self.nc = self.text_embeddings.shape[1]  # number of classes
+    
         # for zsd case......
         self.no = self.nc  + 5  # number of outputs per anchor
 
@@ -312,8 +313,7 @@ class ZSD_IDetect(nn.Module):
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
         self.im = nn.ModuleList(ImplicitM(self.no * self.na) for _ in ch)
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
-        self.train(mode=True)
-
+        
     def forward(self, x):
         # x = x.copy()  # for profiling
         z = []  # inference output
@@ -354,7 +354,7 @@ class ZSD_IDetect(nn.Module):
         return x if self.training else (torch.cat(z, 1), x)
     
     def update_nc_no(self):
-        self.nc = self.text_embeddings.shape[0]
+        self.nc = self.text_embeddings.shape[1]
         self.no = self.nc + 5
     
     def eval(self):
