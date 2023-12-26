@@ -416,7 +416,7 @@ def train(hyp, opt, device, tb_writer=None):
         pbar = enumerate(dataloader)
         
         if opt.zsd:
-            logger.info(('\n' + '%10s' * 11) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'img_cls', 'text_cls', 'simg_cls', 'stext_cls', 'total', 'labels'))
+            logger.info(('\n' + '%10s' * 11) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'img_cls', 'text_cls', 'self_img_cls', 'self_text_cls', 'total', 'labels'))
         else:
             logger.info(('\n' + '%10s' * 8) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'total', 'labels', 'img_size'))
        
@@ -457,15 +457,19 @@ def train(hyp, opt, device, tb_writer=None):
                     loss, loss_items = compute_loss_ota(pred, targets.to(device), imgs)  # loss scaled by batch_size
                 else:
                     loss, loss_items = compute_loss(pred, targets.to(device))  # loss scaled by batch_size
+                
                 if rank != -1:
                     loss *= opt.world_size  # gradient averaged between devices in DDP mode
+                
                 if opt.quad:
                     loss *= 4.
                 # Divergence Flag       
             
+            """
             if loss.isnan():
                 print("Training has diverged. Exiting Trial")
                 return (0, ) * (11 if opt.zsd else 7)
+            """
             
             # Backward
             scaler.scale(loss).backward()
