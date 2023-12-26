@@ -1907,7 +1907,7 @@ class ComputeZSDLoss:
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))
             self.cls_loss = ZSDBinaryCrossEntropy(h, det, BCEcls)
-        elif isinstance(det.sim_func, SoftmaxSim):
+        else:
             self.cls_loss = ZSDCrossEntropy(h, det)
             if h['learnable_background']:
                 self.cls_loss.bg = det.bg
