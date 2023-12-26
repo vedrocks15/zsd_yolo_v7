@@ -40,6 +40,8 @@ logger = logging.getLogger(__name__)
 
 
 def train(hyp, opt, device, tb_writer=None):
+
+    # Reading & logging hyper-parameters....
     logger.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
     save_dir, epochs, batch_size, total_batch_size, weights, rank, freeze = \
         Path(opt.save_dir), opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank, opt.freeze
@@ -84,14 +86,14 @@ def train(hyp, opt, device, tb_writer=None):
     # Extracting seen & unseen class names... (from data/...yaml)
     nc = 1 if opt.single_cls else int(data_dict['nc'])  # number of classes
     
-    # Checking if ZSD flag is set or not.....
+    # Class names for zsd flag....
     if opt.zsd:
         names = [i for i in data_dict['train_names']]
     else:
         names = ['item'] if opt.single_cls and len(data_dict['names']) != 1 else data_dict['names']  # class names
     
     # Checking class count...
-    assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data)  # check
+    assert len(names) == nc, '%g names found for nc=%g dataset in %s' % (len(names), nc, opt.data) 
 
     # Using checkpointed weights.....(supervised weights can be used here for loading...)
     pretrained = weights.endswith('.pt')
@@ -111,7 +113,7 @@ def train(hyp, opt, device, tb_writer=None):
     
     with torch_distributed_zero_first(rank):
         check_dataset(data_dict)  # check
-
+    print(model.model[-1])
     # Path names....
     train_path = data_dict['train']
     test_path = data_dict['val']
