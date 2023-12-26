@@ -91,8 +91,8 @@ def zeroshot_classifier(classnames,
                                         return_tensors="pt", 
                                         padding=True)
             text_batch.to(device)                          
-            op = model(**text_batch)
-            class_embedding = op.text_embeds
+            op = clip_model(**text_batch)
+            class_embeddings = op.text_embeds
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
             class_embedding = class_embeddings.mean(dim=0)
             class_embedding /= class_embedding.norm()
