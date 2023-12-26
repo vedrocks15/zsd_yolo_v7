@@ -59,6 +59,13 @@ class SoftmaxSim(nn.Module):
             groups = [torch.Tensor(i) for i in groups]
         self.eval_groups = [i.type(torch.LongTensor) for i in groups]
 
+class DefaultCosine(nn.Module):
+    def __init__(self, eps=1e-8):
+        super().__init__()
+        self.eps = eps
+    def forward(self, cls_outputs, text_embeddings, favor=None):
+        output = sim_matrix(cls_outputs.float(), text_embeddings.float(), self.eps)
+        return output
 
 class Detect(nn.Module):
     stride = None  # strides computed during build
