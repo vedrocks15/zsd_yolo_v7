@@ -398,7 +398,7 @@ def train(hyp, opt, device, tb_writer=None):
         
          # updates the number of classes in the prediction head...
         model.train()
-        
+
         # Update image weights (optional)
         if opt.image_weights:
             # Generate indices
@@ -468,13 +468,11 @@ def train(hyp, opt, device, tb_writer=None):
                 
                 if opt.quad:
                     loss *= 4.
-                # Divergence Flag       
-            
-            """
+                
+            # Divergence Flag       
             if loss.isnan():
                 print("Training has diverged. Exiting Trial")
                 return (0, ) * (11 if opt.zsd else 7)
-            """
             
             # Backward
             scaler.scale(loss).backward()
@@ -526,7 +524,7 @@ def train(hyp, opt, device, tb_writer=None):
             
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
-                results, maps, times =test_zsd.test(data_dict,
+                results, maps, times = test_zsd.test(data_dict,
                                                  batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
                                                  model=ema.ema,
@@ -596,6 +594,7 @@ def train(hyp, opt, device, tb_writer=None):
                 if best_fitness == fi:
                     torch.save(ckpt, best)
                     torch.save(no_det, best_no_det)
+                    
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
@@ -711,7 +710,7 @@ if __name__ == '__main__':
     parser.add_argument('--visualization-demo', default=False, action='store_true')
     parser.add_argument('--no-zsd-post', default=False, action='store_true', help='performs regular postprocessing when performing zsd')
     parser.add_argument('--nms-then-zsd', default=False, action='store_true', help='performs zsd post-processing after nms')    
-    
+    parser.add_argument('--verbose', default=False, action='store_true')
     
     # Parsing all cmd line arguments.....
     opt = parser.parse_args()
