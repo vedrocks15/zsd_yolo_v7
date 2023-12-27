@@ -1745,15 +1745,17 @@ class ZSDCrossEntropy(nn.Module):
         # image distillation loss...
         if (img_targets is not None) and (self.img_distill_weight > 0):
             
-            # weighing gt & self label boxes differently....
+            # only considering gt boxes initially for loss computations.....
             if len(cls_pred[idx]):
                 img_loss += torch.sum(torch.abs(cls_pred[idx] - img_targets[idx]) ** self.diff_exp)
+
             # self label loss
             if self.self_img_loss_scalar and len(cls_pred[torch.logical_not(idx)]):
                 self_label_img_loss = torch.sum(torch.abs(cls_pred[torch.logical_not(idx)] - img_targets[torch.logical_not(idx)]) ** self.diff_exp) * self.self_img_loss_scalar
                 img_loss += self_label_img_loss
                 self_label_img_loss = self_label_img_loss / cls_pred[torch.logical_not(idx)].numel()
             
+            # scaling the loss by the target size....
             img_loss = img_loss / cls_pred.numel()
 
         # text distillation loss...
@@ -1770,7 +1772,7 @@ class ZSDCrossEntropy(nn.Module):
                 sim = self.sim_func(cls_pred, text_embeddings)
 
             classes = classes.type(torch.cuda.LongTensor)
-            classes[classes < 0] = text_embeddings.shape[0] - 1
+            classes[classes < 0] = text_embeddings.shape[0] 
             
             # only using the correct classes.....
             if len(classes[idx]) > 0:
@@ -1872,9 +1874,12 @@ class ComputeZSDLoss:
     def __call__(self, p, targets):  # predictions, targets, model
         device = targets.device
         lcls, limg, ltext, lself_img, lself_text, lbox, lobj = (
-            torch.zeros(1, device=device), torch.zeros(1, device=device),
-            torch.zeros(1, device=device), torch.zeros(1, device=device),
-            torch.zeros(1, device=device), torch.zeros(1, device=device),
+            torch.zeros(1, device=device), 
+            torch.zeros(1, device=device),
+            torch.zeros(1, device=device), 
+            torch.zeros(1, device=device),
+            torch.zeros(1, device=device), 
+            torch.zeros(1, device=device),
             torch.zeros(1, device=device),
         )
         lcls_items = [lcls, limg, ltext, lself_img, lself_text]
@@ -1899,8 +1904,11 @@ class ComputeZSDLoss:
 
                 # Classification
                 if self.nc > 1:  # cls loss (only if multiple classes)
-                    lcls_out = self.cls_loss(ps[:, 5:], tcls[i][:, 1:], tcls[i][:, 0],
-                                        self.model.module.model[-1].text_embeddings)
+                    lcls_out = self.cls_loss(ps[:, 5:], 
+                                             tcls[i][:, 1:], 
+                                             tcls[i][:, 0],
+                                             self.model.module.model[-1].text_embeddings)
+                    
                     for j in range(len(lcls_items)):
                         lcls_items[j] += lcls_out[j]
                    
@@ -1926,9 +1934,10 @@ class ComputeZSDLoss:
     def build_targets(self, p, targets):
         # Build targets for compute_loss(), input targets(image,class,x,y,w,h)
         #targets, embeddings = targets[:, :6], targets[:, 6:]
+        
         na, nt = self.na, targets.shape[0]  # number of anchors, targets
         tcls, tbox, indices, anch, embeddings = [], [], [], [], []
-        gain = torch.ones(7, device=targets.device)  # normalized to gridspace gain
+        gain = torch.ones(7, device=targets.device).long()  # normalized to gridspace gain
         ai = torch.arange(na, device=targets.device).float().view(na, 1).repeat(1, nt)  # same as .repeat_interleave(nt)
         targets = torch.cat((targets[:, :6].repeat(na, 1, 1), ai[:, :, None], targets[:, 6:].repeat(na, 1, 1)), 2)  # append anchor indices
 
@@ -1971,7 +1980,7 @@ class ComputeZSDLoss:
             gi, gj = gij.T  # grid xy indices
             # Append
             a = t[:, 6].long()  # anchor indices
-            indices.append((b, a, gj.clamp_(0, int(gain[3] - 1)), gi.clamp_(0, int(gain[2] - 1))))  # image, anchor, grid indices
+            indices.append((b, a, gj.clamp_(0, (gain[3] - 1)), gi.clamp_(0, (gain[2] - 1))))  # image, anchor, grid indices
             tbox.append(torch.cat((gxy - gij, gwh), 1))  # box
             anch.append(anchors[a])  # anchors'
             tcls.append(torch.cat([c.unsqueeze(-1), t[:, 7:]], dim=1))  # class
