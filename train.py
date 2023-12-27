@@ -418,7 +418,7 @@ def train(hyp, opt, device, tb_writer=None):
         pbar = enumerate(dataloader)
         
         if opt.zsd:
-            logger.info(('\n' + '%10s' * 11) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'img_cls', 'text_cls', 'self_img_cls', 'self_text_cls', 'total', 'labels'))
+            logger.info(('\n' + '%10s' * 11) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'i_cls', 't_cls', 'si_cls', 'st_cls', 'total', 'labels'))
         else:
             logger.info(('\n' + '%10s' * 8) % ('Epoch', 'gpu_mem', 'box', 'obj', 'cls', 'total', 'labels', 'img_size'))
        
