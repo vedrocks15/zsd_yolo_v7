@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import sys
 
 # caution: path[0] is reserved for script path (or '' in REPL)
-sys.path.insert(1, '/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/models')
+sys.path.append('/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/models/yolo')
 
 from utils.general import bbox_iou, bbox_alpha_iou, box_iou, box_giou, box_diou, box_ciou, xywh2xyxy
 from utils.torch_utils import is_parallel

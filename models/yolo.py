@@ -12,7 +12,7 @@ from utils.autoanchor import check_anchor_order
 from utils.general import make_divisible, check_file, set_logging
 from utils.torch_utils import time_synchronized, fuse_conv_and_bn, model_info, scale_img, initialize_weights, \
     select_device, copy_attr
-from utils.loss import SigmoidBin
+#from utils.loss import SigmoidBin
 
 try:
     import thop  # for FLOPS computation
@@ -669,8 +669,8 @@ class IBin(nn.Module):
         self.nc = nc  # number of classes
         self.bin_count = bin_count
 
-        self.w_bin_sigmoid = SigmoidBin(bin_count=self.bin_count, min=0.0, max=4.0)
-        self.h_bin_sigmoid = SigmoidBin(bin_count=self.bin_count, min=0.0, max=4.0)
+        self.w_bin_sigmoid = None #SigmoidBin(bin_count=self.bin_count, min=0.0, max=4.0)
+        self.h_bin_sigmoid = None #SigmoidBin(bin_count=self.bin_count, min=0.0, max=4.0)
         # classes, x,y,obj
         self.no = nc + 3 + \
             self.w_bin_sigmoid.get_length() + self.h_bin_sigmoid.get_length()   # w-bce, h-bce
