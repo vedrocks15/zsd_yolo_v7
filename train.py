@@ -594,7 +594,7 @@ def train(hyp, opt, device, tb_writer=None):
                 if best_fitness == fi:
                     torch.save(ckpt, best)
                     torch.save(no_det, best_no_det)
-                    
+
                 if wandb_logger.wandb:
                     if ((epoch + 1) % opt.save_period == 0 and not final_epoch) and opt.save_period != -1:
                         wandb_logger.log_model(
@@ -746,12 +746,18 @@ if __name__ == '__main__':
     device = select_device(opt.device, 
                            batch_size = opt.batch_size)
 
+    # Setting up some checks for distributed training.
     if opt.local_rank != -1:
         assert torch.cuda.device_count() > opt.local_rank
         torch.cuda.set_device(opt.local_rank)
         device = torch.device('cuda', opt.local_rank)
         dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
+
+        # If some GPUs don't get data in multi-gpu training then they can corrupt computations of 
+        # certain layers such as batch norm.
         assert opt.batch_size % opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
+
+        # batch size for each GPU....
         opt.batch_size = opt.total_batch_size // opt.world_size
 
     # Load Hyperparameters
