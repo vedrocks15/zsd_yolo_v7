@@ -1715,6 +1715,7 @@ class ZSDCrossEntropy(nn.Module):
         self.text_distill_weight = hyp['text_distill_weight']
         self.sim_func = det.sim_func
         
+        # self label lossing function....
         self.self_img_loss_scalar = hyp['self_img_loss_scalar']
         self.self_text_loss_scalar = hyp['self_text_loss_scalar']
         
@@ -1860,7 +1861,7 @@ class ComputeZSDLoss:
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))
             self.cls_loss = ZSDBinaryCrossEntropy(h, det, BCEcls)
-        else:
+        elif isinstance(det.sim_func, SoftmaxSim):
             self.cls_loss = ZSDCrossEntropy(h, det)
             if h['learnable_background']:
                 self.cls_loss.bg = det.bg
