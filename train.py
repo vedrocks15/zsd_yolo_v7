@@ -391,9 +391,12 @@ def train(hyp, opt, device, tb_writer=None):
                 f'Logging results to {save_dir}\n'
                 f'Starting training for {epochs} epochs...')
     
+   
+
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         
-        # updates the number of classes in the prediction head...
+        
+         # updates the number of classes in the prediction head...
         model.train()
         
         # Update image weights (optional)

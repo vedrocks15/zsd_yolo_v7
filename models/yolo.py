@@ -296,7 +296,7 @@ class ZSD_IDetect(nn.Module):
         self.text_embeddings = self.train_text_embeddings
 
 
-        self.nc = self.text_embeddings.shape[1]  # number of classes
+        self.nc = nc # number of classes
     
         # for zsd case......
         self.no = self.nc  + 5  # number of outputs per anchor
@@ -308,10 +308,10 @@ class ZSD_IDetect(nn.Module):
 
         self.register_buffer('anchors', a)  # shape(nl,na,2)
         self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
-        self.m = nn.ModuleList(nn.Conv2d(x, self.no * self.na, 1) for x in ch)  # output conv
+        self.m = nn.ModuleList(nn.Conv2d(x, (self.text_embeddings.shape[1] + 5) * self.na, 1) for x in ch)  # output conv
         
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
-        self.im = nn.ModuleList(ImplicitM(self.no * self.na) for _ in ch)
+        self.im = nn.ModuleList(ImplicitM((self.text_embeddings.shape[1] + 5) * self.na) for _ in ch)
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
         
     def forward(self, x):
@@ -324,7 +324,7 @@ class ZSD_IDetect(nn.Module):
             
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             # reshapping the output to appropriate dimensions....
-            x[i] = x[i].view(bs, self.na, self.no, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
+            x[i] = x[i].view(bs, self.na, self.text_embeddings.shape[1] + 5, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
             if not self.training:  # inference
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
@@ -354,7 +354,7 @@ class ZSD_IDetect(nn.Module):
         return x if self.training else (torch.cat(z, 1), x)
     
     def update_nc_no(self):
-        self.nc = self.text_embeddings.shape[1]
+        self.nc = self.text_embeddings.shape[0]
         self.no = self.nc + 5
     
     def eval(self):
