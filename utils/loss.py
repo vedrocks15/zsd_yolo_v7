@@ -9,51 +9,6 @@ from utils.torch_utils import is_parallel
 from models.yolo import *
 
 
-class SoftmaxSim(nn.Module):
-    def __init__(self, temp=3.91, eps=1e-8):
-        super().__init__()
-        # trainable temperature parameter....
-        self.temp = nn.Parameter(torch.Tensor([temp]), requires_grad=True)
-        self.cosine_sim = DefaultCosine(eps)
-        self.eval_groups = None
-    
-    # simple forward inference....
-    def forward(self, cls_outputs, text_embeddings, favor=None):
-        output = self.cosine_sim(cls_outputs, text_embeddings, favor) * torch.exp(self.temp)
-        if getattr(self, 'eval_groups', None):
-            for i in self.eval_groups:
-                output[:, i] = torch.nn.functional.softmax(output[:, i], dim=-1)
-        else:
-            output = torch.nn.functional.softmax(output, dim=-1)
-        return output
-    
-    def set_eval_groups(self, groups):
-        if not isinstance(groups[0], torch.Tensor):
-            groups = [torch.Tensor(i) for i in groups]
-        self.eval_groups = [i.type(torch.LongTensor) for i in groups]
-
-class SigmoidSim(nn.Module):
-    def __init__(self, contrast=10.0, shift=6.0, eps=1e-8):
-        super().__init__()
-        self.cosine_scalar = CosineScaler(contrast, shift)
-        self.cosine_sim = DefaultCosine(eps)
-    def forward(self, cls_outputs, text_embeddings, favor=None):
-        output = self.cosine_sim(cls_outputs.float(), text_embeddings.float(), favor)
-        output = self.cosine_scalar(output)
-        if not self.training:
-            output = torch.sigmoid(output)
-        return output
-
-
-class DefaultCosine(nn.Module):
-    def __init__(self, eps=1e-8):
-        super().__init__()
-        self.eps = eps
-    def forward(self, cls_outputs, text_embeddings, favor=None):
-        # function define above....
-        output = sim_matrix(cls_outputs.float(), text_embeddings.float(), self.eps)
-        return output
-
 
 def smooth_BCE(eps=0.1):  # https://github.com/ultralytics/yolov3/issues/238#issuecomment-598028441
     # return positive, negative label smoothing BCE targets
@@ -893,12 +848,6 @@ class ComputeLossOTA:
         return indices, anch
 
 # Helper function to compute text similarity with embedding vectors...
-def sim_matrix(a, b, eps=1e-8):
-    a_n, b_n = a.norm(dim=1)[:, None], b.norm(dim=1)[:, None]
-    a_norm = a / torch.max(a_n, eps * torch.ones_like(a_n))
-    b_norm = b / torch.max(b_n, eps * torch.ones_like(b_n))
-    sim_mt = torch.mm(a_norm.float(), b_norm.transpose(0, 1).float())
-    return sim_mt
 
 class ComputeLossBinOTA:
     # Compute losses
@@ -1902,7 +1851,7 @@ class ComputeZSDLoss:
         self.balance = {3: [4.0, 1.0, 0.4]}.get(det.nl, [4.0, 1.0, 0.25, 0.06, .02])  # P3-P7
         self.ssi = list(det.stride).index(16) if autobalance else 0  # stride 16 index
         self.BCEobj, self.gr, self.hyp, self.autobalance = BCEobj, model.gr, h, autobalance
-        
+      
         # Similarity Function used for text loss....
         if isinstance(det.sim_func, SigmoidSim):
             BCEcls = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([h['cls_pw']], device=device))

@@ -765,8 +765,7 @@ class LoadZSD(Dataset):  # for training/testing
             logging.info('Removing images without annotations.')
             label_names = []
             label_path = path.replace(self.image_folder, self.annot_folder)
-
-            print(label_path)
+            
             for name in os.listdir(label_path):
                 try:
                     image_embeddings = torch.load(os.path.join(label_path, name))

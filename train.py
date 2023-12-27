@@ -68,11 +68,13 @@ def train(hyp, opt, device, tb_writer=None):
     plots = not opt.evolve  # create plots
     cuda = device.type != 'cpu'
     init_seeds(2 + rank)
+
+    # opening data path specification yaml
     with open(opt.data) as f:
         data_dict = yaml.load(f, Loader=yaml.SafeLoader)  # data dict
     is_coco = opt.data.endswith('coco.yaml')
 
-    # Logging- Doing this before checking the dataset. Might update data_dict
+    # Logging - Doing this before checking the dataset. Might update data_dict
     loggers = {'wandb': None}  # loggers dict
     if rank in [-1, 0]:
         opt.hyp = hyp  # add hyperparameters
@@ -130,7 +132,7 @@ def train(hyp, opt, device, tb_writer=None):
         model.model[-1].bg = nn.Parameter(torch.load(opt.initial_bg_path, map_location=device), requires_grad=True)
     
     
-    # Freeze
+    # Freeze the layers....
     freeze = [f'model.{x}.' for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # parameter names to freeze (full or partial)
     for k, v in model.named_parameters():
         v.requires_grad = True  # train all layers
@@ -322,19 +324,19 @@ def train(hyp, opt, device, tb_writer=None):
     # Process 0
     if rank in [-1, 0]:
         testloader = create_dataloader(test_path, 
-                                       imgsz_test, 
-                                       batch_size, 
-                                       gs, 
-                                       opt,  # testloader
-                                       hyp=hyp, 
-                                       cache=opt.cache_images and not opt.notest, 
-                                       rect=True, 
-                                       rank=-1,
-                                       world_size=opt.world_size,
-                                       workers=opt.workers,  
-                                       pad=0.5, 
-                                       prefix=colorstr('val: '),
-                                       annot_folder=opt.annot_folder)[0]
+                                        imgsz_test, 
+                                        batch_size, 
+                                        gs, 
+                                        opt,  # testloader
+                                        hyp=hyp, 
+                                        cache=opt.cache_images and not opt.notest, 
+                                        rect=True, 
+                                        rank=-1,
+                                        world_size=opt.world_size,
+                                        workers=opt.workers,  
+                                        pad=0.5, 
+                                        prefix=colorstr('val: '),
+                                        annot_folder=opt.annot_folder)[0]
 
         if not opt.resume:
             labels = np.concatenate([i[:, :5] for i in dataset.labels], 0)
@@ -649,7 +651,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Default arguments for basic training....
-    parser.add_argument('--weights', type=str, default='', help='initial weights path')
+    parser.add_argument('--weights', type=str, default='', help='initial weights or can be seen as supervised weights...')
     parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
     parser.add_argument('--data', type=str, default='data/coco.yaml', help='data.yaml path')
     parser.add_argument('--hyp', type=str, default='data/hyp.scratch.p5.yaml', help='hyperparameters path')
@@ -661,7 +663,7 @@ if __name__ == '__main__':
     parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
     parser.add_argument('--notest', action='store_true', help='only test final epoch')
     parser.add_argument('--noautoanchor', action='store_true', help='disable autoanchor check')
-    parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
+    parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters') # since we are using hyper-params from the paper no need
     parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
     parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
     parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
@@ -669,12 +671,12 @@ if __name__ == '__main__':
     parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
     parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
     parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
-    parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
+    parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode') # batch norm in distributed training
     parser.add_argument('--local-rank', type=int, default=-1, help='DDP parameter, do not modify')
     parser.add_argument('--workers', type=int, default=8, help='maximum number of dataloader workers')
-    parser.add_argument('--project', default='runs/train', help='save to project/name')
+    parser.add_argument('--project', default='runs/train', help='save to project/name') # directory to save
     parser.add_argument('--entity', default=None, help='W&B entity')
-    parser.add_argument('--name', default='exp', help='save to project/name')
+    parser.add_argument('--name', default='exp', help='save to project/name') # good naming convention
     parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
     parser.add_argument('--quad', action='store_true', help='quad dataloader')
     parser.add_argument('--linear-lr', action='store_true', help='linear LR')
@@ -713,7 +715,7 @@ if __name__ == '__main__':
     print(opt)
 
     # Set DDP variables
-    opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
+    opt.world_size  = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
     opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
     set_logging(opt.global_rank)
    
@@ -734,11 +736,14 @@ if __name__ == '__main__':
         assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
         opt.img_size.extend([opt.img_size[-1]] * (2 - len(opt.img_size)))  # extend to 2 sizes (train, test)
         opt.name = 'evolve' if opt.evolve else opt.name
-        opt.save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok | opt.evolve)  # increment run
+        # increment run (avoid directory clashes...)
+        opt.save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok | opt.evolve)  
 
     # DDP mode
     opt.total_batch_size = opt.batch_size
-    device = select_device(opt.device, batch_size=opt.batch_size)
+    device = select_device(opt.device, 
+                           batch_size = opt.batch_size)
+
     if opt.local_rank != -1:
         assert torch.cuda.device_count() > opt.local_rank
         torch.cuda.set_device(opt.local_rank)
@@ -747,9 +752,9 @@ if __name__ == '__main__':
         assert opt.batch_size % opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
         opt.batch_size = opt.total_batch_size // opt.world_size
 
-    # Hyperparameters
+    # Load Hyperparameters
     with open(opt.hyp) as f:
-        hyp = yaml.load(f, Loader=yaml.SafeLoader)  # load hyps
+        hyp = yaml.load(f, Loader=yaml.SafeLoader)  
 
     # Train
     logger.info(opt)
@@ -759,11 +764,11 @@ if __name__ == '__main__':
             prefix = colorstr('tensorboard: ')
             logger.info(f"{prefix}Start with 'tensorboard --logdir {opt.project}', view at http://localhost:6006/")
             tb_writer = SummaryWriter(opt.save_dir)  # Tensorboard
+        
+        # Train the model.....
         train(hyp, opt, device, tb_writer)
-
-    # Evolve hyperparameters (<<<<<Update LATER>>>>>)
     else:
-
+        # Evolve hyperparameters (<<<<<Update LATER>>>>>)
         '''
         # Hyperparameter evolution metadata (mutation scale 0-1, lower_limit, upper_limit)
         meta = {'lr0': (1, 1e-5, 1e-1),  # initial learning rate (SGD=1E-2, Adam=1E-3)
