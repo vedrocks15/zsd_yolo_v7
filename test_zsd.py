@@ -138,7 +138,7 @@ def test(data,
     nc = 1 if single_cls else model.model[-1].nc
     
     # iou vector for mAP@0.5:0.95
-    iouv = torch.linspace(0.05, 0.95, 10).to(device)  
+    iouv = torch.linspace(0.5, 0.95, 10).to(device)  
     niou = iouv.numel()
     
     # Logging
@@ -454,7 +454,7 @@ def test(data,
     
     for k, v in all_info.items():
         info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
-        print(f'Recall for {k}: {info}')
+        #print(f'Recall for {k}: {info}')
     
     # Plots
     if plots:
@@ -502,7 +502,7 @@ def test(data,
         maps[c] = all_info['val_names']['ap'][i]
     if any('_temp' in k for k in data.keys()) and opt.eval_by_splits and opt.zsd and model.hyp['sim_func'] == 0:
         model.model[-1].sim_func.temp = prev_temp
-    print(list(val_info['ap50']))
+    #print(list(val_info['ap50']))
     return (*training_fitness(all_info), *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
 
