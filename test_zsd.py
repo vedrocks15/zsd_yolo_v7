@@ -163,7 +163,7 @@ def test(data,
     else:
         if opt.zsd:
             names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
-            names[-1]= "self_label"
+            #names[-1]= "self_label"
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
     
@@ -416,6 +416,7 @@ def test(data,
     
     if opt.visualization_demo:
         torch.save(stats_per_img, save_dir / 'stats_per_img.pt')
+    
     val_info = all_info['val_names']
     val_info['stats'] = [np.concatenate(x, 0) for x in zip(*val_info['stats'])]  # to numpy
     if len(val_info['stats']) and val_info['stats'][0].any():

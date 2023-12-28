@@ -341,7 +341,7 @@ def train(hyp, opt, device, tb_writer=None):
                                         workers=opt.workers,  
                                         pad=0.5, 
                                         prefix=colorstr('val: '),
-                                        annot_folder=opt.annot_folder)[0]
+                                        annot_folder="labels")[0]
 
         if not opt.resume:
             labels = np.concatenate([i[:, :5] for i in dataset.labels], 0)
