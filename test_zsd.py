@@ -231,8 +231,7 @@ def test(data,
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         if single_cls:
             targets[:, 1] = 0.0
-        
-        print(img.shape)
+   
         # performing batch inference.....
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
@@ -245,6 +244,7 @@ def test(data,
         with torch.no_grad():
             out, train_out = model(img, augment=augment)  # inference and training outputs
         t0 += time_synchronized() - t
+        print(len(out))
 
         # Compute loss
         if compute_loss:

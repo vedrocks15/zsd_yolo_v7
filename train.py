@@ -489,6 +489,7 @@ def train(hyp, opt, device, tb_writer=None):
                 optimizer.zero_grad()
                 if ema:
                     ema.update(model)
+                 break
 
             # Print
             if rank in [-1, 0]:
@@ -514,7 +515,7 @@ def train(hyp, opt, device, tb_writer=None):
                     wandb_logger.log({"Mosaics": [wandb_logger.wandb.Image(str(x), caption=x.name) for x in
                                                   save_dir.glob('train*.jpg') if x.exists()]})
             # end batch ------------------------------------------------------------------------------------------------
-            break
+           
         # end epoch ----------------------------------------------------------------------------------------------------
 
         # Scheduler
