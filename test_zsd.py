@@ -139,7 +139,7 @@ def test(data,
     nc = 1 if single_cls else model.model[-1].nc
     
     # iou vector for mAP@0.5:0.95
-    iouv = torch.linspace(0.5, 0.95, 10).to(device)  
+    iouv = torch.linspace(0.05, 0.95, 10).to(device)  
     niou = iouv.numel()
     
     # Logging
