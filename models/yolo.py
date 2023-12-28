@@ -358,7 +358,7 @@ class ZSD_IDetect(nn.Module):
         self.no = self.nc + 5
     
     def eval(self):
-        self.text_embeddings = self.val_text_embeddings
+        #self.text_embeddings = self.val_text_embeddings
         self.update_nc_no()
         return super().eval()
     

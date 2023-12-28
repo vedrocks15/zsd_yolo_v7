@@ -232,6 +232,7 @@ def test(data,
         if single_cls:
             targets[:, 1] = 0.0
         
+        print(img.shape)
         # performing batch inference.....
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
