@@ -843,7 +843,6 @@ def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes
     return output
 
 
-
 def non_max_suppression_kpt(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
                         labels=(), kpt_label=False, nc=None, nkpt=None):
     """Runs Non-Maximum Suppression (NMS) on inference results

@@ -81,7 +81,7 @@ def create_dataloader(path,
                       prefix=''):
     
     # Make sure only the first process in DDP process the dataset first, and the following others can use the cache
-    loader_type = LoadZSD if (opt.zsd) else LoadImagesAndLabels
+    loader_type = LoadZSD if ((opt.zsd) and (annot_folder != "labels")) else LoadImagesAndLabels
     print("Type of loader used : ",loader_type)
 
     with torch_distributed_zero_first(rank):

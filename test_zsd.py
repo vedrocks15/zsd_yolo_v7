@@ -163,6 +163,7 @@ def test(data,
     else:
         if opt.zsd:
             names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
+            names = {-1:"self_label"}
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
     
@@ -254,7 +255,7 @@ def test(data,
         
         # Run zsd NMS 
         targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device) # scaling the labels appropriately...
-        # removing the self labelled targets...
+
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         
         t = time_synchronized()
