@@ -14,7 +14,7 @@ from models.experimental import attempt_load
 #from models.yolo import *
 from utils.datasets import create_dataloader
 from utils.general import coco80_to_coco91_class, check_dataset, check_file, check_img_size, check_requirements, \
-    box_iou, non_max_suppression, scale_coords, xyxy2xywh, xywh2xyxy, set_logging, increment_path, colorstr
+    box_iou, non_max_suppression,non_max_suppression_zsd, scale_coords, xyxy2xywh, xywh2xyxy, set_logging, increment_path, colorstr
 from utils.metrics import ap_per_class, ConfusionMatrix, fitness, ap_per_class_pred_unique
 from utils.plots import plot_images, output_to_target, plot_study_txt
 from utils.torch_utils import select_device, time_synchronized
@@ -80,13 +80,17 @@ def test(data,
          is_coco=False,
          text_embedding_path=None,
          opt=None):
-    print(batch_size)
+   
     # Initialize/load model and set device
     training = model is not None
-    if training:  # called by train.py
-        device = next(model.parameters()).device  # get model device
 
-    else:  # called directly
+    # called by train.py....
+    if training:  
+        # get model device...
+        device = next(model.parameters()).device  
+
+    else:  
+        # called directly
         set_logging()
         device = select_device(opt.device, batch_size=batch_size)
 
@@ -113,27 +117,36 @@ def test(data,
     if half:
         model.half()
 
-    # Configure
+    # Switching the model to evaluation mode.....
     model.eval()
+    
+    # during evaluation supporting dynamic change of text embeddings.....
     if text_embedding_path:
         det = model.model[-1]
         det.text_embeddings = torch.load(text_embedding_path)
         det.update_nc_no()
-    print(model.model[-1].text_embeddings.shape)
+    
+    # checking if loaded yaml file is supplied or not
     if isinstance(data, str):
         is_coco = data.endswith('coco.yaml')
         with open(data) as f:
             data = yaml.safe_load(f)
-    check_dataset(data)  # check
-    #nc = 1 if single_cls else int(data['nc'])  # number of classes
+
+    # check
+    check_dataset(data)  
+
+    # this  is not the embedding dimension, this is the actual class count...
     nc = 1 if single_cls else model.model[-1].nc
-    iouv = torch.linspace(0.5, 0.95, 10).to(device)  # iou vector for mAP@0.5:0.95
+    
+    # iou vector for mAP@0.5:0.95
+    iouv = torch.linspace(0.5, 0.95, 10).to(device)  
     niou = iouv.numel()
     
     # Logging
     log_imgs = 0
     if wandb_logger and wandb_logger.wandb:
         log_imgs = min(wandb_logger.log_imgs, 100)
+
     # Dataloader
     if not training:
         if device.type != 'cpu':
@@ -142,15 +155,17 @@ def test(data,
         dataloader = create_dataloader(data[task], imgsz, batch_size, gs, opt, pad=0.5, rect=True, hyp={'do_zsd': opt.zsd},
                                        prefix=colorstr(f'{task}: '), annot_folder=opt.annot_folder)[0]
     
+
     seen = 0
     confusion_matrix = ConfusionMatrix(nc=nc)
     if single_cls:
         names = {0: 'object'}
     else:
         if opt.zsd:
-            names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
+            names = {i: data["unseen_class"][i] for i in range(len(data['unseen_class']))}
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
+    
     if opt.zsd:
         if any('_temp' in k for k in data.keys()) and (model.hyp['sim_func'] == 0) and opt.eval_splits != None:
             print('temp: ' + str(model.model[-1].sim_func.temp))
@@ -170,22 +185,30 @@ def test(data,
             det.favor = torch.zeros(size=(len(data['val_names']), ))
             for i in data['unseen_names']:
                 det.favor[i] = opt.favor
+    
     all_info = {}
-    create_eval_key(all_info, 'val_names', classes=data['val_names'])
+    create_eval_key(all_info, 'val_names', classes=data['unseen_class'])
     for i in opt.eval_splits:
         create_eval_key(all_info, i, classes=data[i])
+
     if opt.eval_by_splits:
         model.model[-1].sim_func.set_eval_groups([data[i] for i in opt.eval_splits])
-        
+    
+    # converts 80-index (val2014) to 91-index (paper)
     coco91class = coco80_to_coco91_class()
+    # logging headers in terminal....
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
     if opt.zsd:
+        # 7 components : box_regression loss | objectness loss | image distillation | text distillation | self image | self text | cls
         loss = torch.zeros(7, device=device)
     else:
         loss = torch.zeros(3, device=device)
+    
     zsd_recall_correct, zsd_recall_classes = [], []
     iour = torch.Tensor([0.4, 0.5, 0.6]).to(device)
+
+
     if opt.visualization_demo:
         if os.path.exists(save_dir / 'visualization_demo_labels'):
             shutil.rmtree(save_dir / 'visualization_demo_labels')
@@ -198,11 +221,17 @@ def test(data,
         shutil.rmtree(save_dir / 'batch_plots_labels')
     if os.path.exists(save_dir / 'batch_plots_pred'):
         shutil.rmtree(save_dir / 'batch_plots_pred')
+    
+    # outputing the predictions......
     os.mkdir(save_dir / 'batch_plots_labels')
     os.mkdir(save_dir / 'batch_plots_pred')
+    
+    # looping the test data loader.....
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
         if single_cls:
             targets[:, 1] = 0.0
+        
+        # performing batch inference.....
         img = img.to(device, non_blocking=True)
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
@@ -218,17 +247,33 @@ def test(data,
         # Compute loss
         if compute_loss:
             if opt.zsd:
-                loss += compute_loss([x.float() for x in train_out], targets)[1][:7]  # box, obj, cls, img, text, self_img, self_text
+                # 7 element loss function : box, obj, cls, img, text, self_img, self_text
+                loss += compute_loss([x.float() for x in train_out], targets)[1][:7]  
             else:
                 loss += compute_loss([x.float() for x in train_out], targets)[1][:3]  # box, obj, cls
-        # Run NMS
-        targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device)  # to pixels
+        
+        # Run zsd NMS 
+        targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device) # scaling the labels appropriately...
+        # removing the self labelled targets...
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
+        
         t = time_synchronized()
         if single_cls:
             out[:, :, 6:] = 0.0
             out[:, :, 5] = 1.0
-        out = non_max_suppression(out, conf_thres, iou_thres, labels=lb, multi_label=True, agnostic=single_cls or opt.agnostic_nms, zsd=opt.zsd and (not opt.no_zsd_post), obj_conf_thresh=opt.obj_conf_thresh, max_det=opt.max_det, eval_splits=[data[k] for k in opt.eval_splits], nms_then_zsd=opt.nms_then_zsd)
+        
+        out = non_max_suppression_zsd(out, 
+                                      conf_thres, 
+                                      iou_thres, 
+                                      labels=lb, 
+                                      multi_label=True, 
+                                      agnostic=single_cls or opt.agnostic_nms, 
+                                      zsd=opt.zsd and (not opt.no_zsd_post), 
+                                      obj_conf_thresh=opt.obj_conf_thresh, 
+                                      max_det=opt.max_det, 
+                                      eval_splits=[data[k] for k in opt.eval_splits], 
+                                      nms_then_zsd=opt.nms_then_zsd)
+
         t1 += time_synchronized() - t
         
         # Statistics per image
@@ -329,6 +374,7 @@ def test(data,
                         for v in recall_detected.values():
                             zsd_recall_correct.append(v)
                             zsd_recall_classes.append(cls)
+            
             # Append statistics (correct, conf, pcls, tcls)
             all_info['val_names']['stats'].append((correct.cpu(), pred[:, 4].cpu(), pred[:, 5].cpu(), tcls.cpu()))
             if opt.visualization_demo:
@@ -350,6 +396,7 @@ def test(data,
                 img_stats['pred'] = pred.cpu().numpy()
                 img_stats['labels'] = targets[targets[:, 0] == si, 1:6].cpu().numpy()
                 stats_per_img.append(img_stats)
+        
         # Plot images
         if (plots and batch_i < 3) or opt.visualization_demo:
             f = save_dir / f'batch_plots_labels/test_batch{batch_i}_labels.jpg'  # labels
@@ -360,6 +407,7 @@ def test(data,
         #if batch_i > 10:
         #    break
     # Compute statistics
+    
     if opt.visualization_demo:
         torch.save(stats_per_img, save_dir / 'stats_per_img.pt')
     val_info = all_info['val_names']
@@ -390,6 +438,7 @@ def test(data,
                 print(pf % (str(i) + ' ' + data['all_names'][i], seen, nt[c], val_info['p'][c], val_info['r'][c], val_info['ap50'][c], val_info['ap'][c]))
             #create double whitespace lines
         print('\n')
+    
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     if not training:
@@ -398,6 +447,7 @@ def test(data,
     for k, v in all_info.items():
         info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
         print(f'Recall for {k}: {info}')
+    
     # Plots
     if plots:
         confusion_matrix.plot(save_dir=save_dir, names=list(names.values()))
@@ -433,6 +483,7 @@ def test(data,
             print(f'pycocotools unable to run: {e}')
     torch.save(opt, save_dir / 'opts.pt')
     torch.save(model, save_dir / 'model.pt')
+    
     # Return results
     model.float()  # for training
     if not training:

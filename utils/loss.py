@@ -1882,7 +1882,9 @@ class ComputeZSDLoss:
             torch.zeros(1, device=device),
             torch.zeros(1, device=device),
         )
+        # net classification loss is made up of 5 elements.....
         lcls_items = [lcls, limg, ltext, lself_img, lself_text]
+
         tcls, tbox, indices, anchors = self.build_targets(p, targets)  # targets
         # Losses
         for i, pi in enumerate(p):  # layer index, layer predictions
@@ -1892,12 +1894,13 @@ class ComputeZSDLoss:
             if n:
                 ps = pi[b, a, gj, gi]  # prediction subset corresponding to targets
 
-                # Regression
                 pxy = ps[:, :2].sigmoid() * 2. - 0.5
                 pwh = (ps[:, 2:4].sigmoid() * 2) ** 2 * anchors[i]
                 pbox = torch.cat((pxy, pwh), 1)  # predicted box
-                iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  # iou(prediction, target)
-                lbox += (1.0 - iou).mean()  # iou loss
+                # Net iou loss
+                iou = bbox_iou(pbox.T, tbox[i], x1y1x2y2=False, CIoU=True)  
+                # iou loss
+                lbox += (1.0 - iou).mean()  
 
                 # Objectness
                 tobj[b, a, gj, gi] = (1.0 - self.gr) + self.gr * iou.detach().clamp(0).type(tobj.dtype)  # iou ratio
@@ -1909,6 +1912,7 @@ class ComputeZSDLoss:
                                              tcls[i][:, 0],
                                              self.model.module.model[-1].text_embeddings)
                     
+                    # inplace updates are happening.....
                     for j in range(len(lcls_items)):
                         lcls_items[j] += lcls_out[j]
                    
@@ -1923,6 +1927,7 @@ class ComputeZSDLoss:
 
         if self.autobalance:
             self.balance = [x / self.balance[self.ssi] for x in self.balance]
+
         lbox *= self.hyp['box']
         lobj *= self.hyp['obj']
         lcls *= self.hyp['cls']

@@ -85,8 +85,8 @@ def train(hyp, opt, device, tb_writer=None):
         if wandb_logger.wandb:
             weights, epochs, hyp = opt.weights, opt.epochs, opt.hyp  # WandbLogger might update weights, epochs if resuming
 
-    # Extracting seen & unseen class names... (from data/...yaml)
-    nc = 1 if opt.single_cls else int(data_dict['nc'])  # number of classes
+    # Extracting class names from data yaml file 
+    nc = 1 if opt.single_cls else int(data_dict['nc']) 
     
     # Class names for zsd flag....
     if opt.zsd:
@@ -108,7 +108,7 @@ def train(hyp, opt, device, tb_writer=None):
         # building open world model (nc shape is handled internally)
         model = Model(opt.cfg or ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device) 
 
-        # exclude keys
+        # exclude keys (since we only want base weights for zsd)
         exclude = ['anchor'] if (opt.cfg or hyp.get('anchors')) and not opt.resume else []  
         state_dict = ckpt['model'].float().state_dict()  # to FP32
         state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
@@ -131,7 +131,6 @@ def train(hyp, opt, device, tb_writer=None):
     if opt.zsd and opt.initial_bg_path:
         model.model[-1].bg = nn.Parameter(torch.load(opt.initial_bg_path, map_location=device), requires_grad=True)
     
-    
     # Freeze the layers....
     freeze = [f'model.{x}.' for x in (freeze if len(freeze) > 1 else range(freeze[0]))]  # parameter names to freeze (full or partial)
     for k, v in model.named_parameters():
@@ -140,10 +139,13 @@ def train(hyp, opt, device, tb_writer=None):
             print('freezing %s' % k)
             v.requires_grad = False
 
-    # Optimizer
-    nbs = 64  # nominal batch size
-    accumulate = max(round(nbs / total_batch_size), 1)  # accumulate loss before optimizing
-    hyp['weight_decay'] *= total_batch_size * accumulate / nbs  # scale weight_decay
+    # Setting up values & parameters for optimization.....
+    # nominal batch size
+    nbs = 64  
+    # accumulate loss before optimizing (helps in using smaller batch sizes....)
+    accumulate = max(round(nbs / total_batch_size), 1) 
+    # scale weight_decay.......
+    hyp['weight_decay'] *= total_batch_size * accumulate / nbs  
     logger.info(f"Scaled weight_decay = {hyp['weight_decay']}")
 
     # optimizer parameter groups
@@ -216,11 +218,13 @@ def train(hyp, opt, device, tb_writer=None):
 
     # selecting optimizer....
     if opt.adam:
-        optimizer = optim.Adam(pg0, lr=hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
+        # Adam contains both momentum & rms prop that is why 2 betas.....
+        optimizer = optim.Adam(pg0, lr = hyp['lr0'], betas=(hyp['momentum'], 0.999))  # adjust beta1 to momentum
     else:
-        optimizer = optim.SGD(pg0, lr=hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
+        # nesterov accelerated optimizer.....
+        optimizer = optim.SGD(pg0, lr = hyp['lr0'], momentum=hyp['momentum'], nesterov=True)
 
-    # adding zsd related hpams..... (trainable similarity function or not....)
+    # adding zsd related hpams..... (adding learnable temperature param in text distillation loss)
     if opt.zsd:
         if hyp['sim_func'] == 0:
             optimizer.add_param_group({'params': model.model[-1].sim_func.temp, 
@@ -232,6 +236,7 @@ def train(hyp, opt, device, tb_writer=None):
             optimizer.add_param_group({'params': model.model[-1].sim_func.cosine_scalar.contrast, 
                                        'lr': hyp['lr0'] * hyp['learnable_contrast_scale']})
 
+        # incase there is a learnable embedding for background classes.....
         #optimizer.add_param_group({'params': model.model[-1].bg, 'lr': hyp['lr0'] * hyp['learnable_background']})
 
     optimizer.add_param_group({'params': pg1, 'weight_decay': hyp['weight_decay']})  # add pg1 with weight_decay
@@ -396,7 +401,7 @@ def train(hyp, opt, device, tb_writer=None):
     for epoch in range(start_epoch, epochs):  # epoch ------------------------------------------------------------------
         
         
-         # updates the number of classes in the prediction head...
+         # updates the number of classes in the prediction head... (also in testing we switch it to evaluation mode)
         model.train()
 
         # Update image weights (optional)
@@ -524,6 +529,7 @@ def train(hyp, opt, device, tb_writer=None):
             
             if not opt.notest or final_epoch:  # Calculate mAP
                 wandb_logger.current_epoch = epoch + 1
+                # batch size would be configured as net_batch_size / num_gpus....
                 results, maps, times = test_zsd.test(data_dict,
                                                  batch_size=batch_size * 2,
                                                  imgsz=imgsz_test,
