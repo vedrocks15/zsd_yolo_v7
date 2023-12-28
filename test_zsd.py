@@ -137,7 +137,6 @@ def test(data,
 
     # this  is not the embedding dimension, this is the actual class count...
     nc = 1 if single_cls else model.model[-1].nc
-    print(model.model[-1].nc)
     
     # iou vector for mAP@0.5:0.95
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  
@@ -382,13 +381,18 @@ def test(data,
                 p = paths[si].split('/')[-1]
                 vis_path = save_dir / 'visualization_demo_pred' / p
                 label_path = save_dir / 'visualization_demo_labels' / p
-                #print(targets[targets[:, 0] == si])
-                #print(output_to_target(out[si:si + 1]).shape)
+            
                 Thread(target=plot_images, args=(img[si:si + 1],
-                                                 torch.cat([torch.zeros(size=(nl, 1)).cuda(),
-                                                            targets[targets[:, 0] == si, 1:6]], dim=1), paths[si: si + 1], 
-                                                 label_path, names, 640, 1, opt.plot_conf), daemon=True).start()
-                Thread(target=plot_images, args=(img[si:si + 1], output_to_target(out[si:si + 1]), paths[si: si + 1], vis_path, names, 640, 1, opt.plot_conf), daemon=True).start()
+                                                 torch.cat([torch.zeros(size=(nl, 1)).cuda(),targets[targets[:, 0] == si, 1:6]], dim=1), 
+                                                 paths[si: si + 1], 
+                                                 label_path, 
+                                                 names), daemon=True).start()
+
+                Thread(target=plot_images, args=(img[si:si + 1], 
+                                                 output_to_target(out[si:si + 1]), 
+                                                 paths[si: si + 1], 
+                                                 vis_path, 
+                                                 names), daemon=True).start()
                 img_stats = {'filename': p}
                 precision, recall, ap, f1, ap_class = ap_per_class_pred_unique(correct.cpu().numpy(), pred[:, 4].cpu().numpy(), pred[:, 5].cpu().numpy(), tcls.cpu().numpy(), plot=False, names=names)
                 #torch.save((precision, recall, ap, f1, ap_class), 'debugging.pt')
@@ -401,9 +405,9 @@ def test(data,
         # Plot images
         if (plots and batch_i < 3) or opt.visualization_demo:
             f = save_dir / f'batch_plots_labels/test_batch{batch_i}_labels.jpg'  # labels
-            Thread(target=plot_images, args=(img, targets[:, :6], paths, f, names, 640, 16, opt.plot_conf), daemon=True).start()
+            Thread(target=plot_images, args=(img, targets[:, :6], paths, f, names), daemon=True).start()
             f = save_dir / f'batch_plots_pred/test_batch{batch_i}_pred.jpg'  # predictions
-            Thread(target=plot_images, args=(img, output_to_target(out), paths, f, names, 640, 16, opt.plot_conf), daemon=True).start()
+            Thread(target=plot_images, args=(img, output_to_target(out), paths, f, names), daemon=True).start()
         #for testing
         #if batch_i > 10:
         #    break

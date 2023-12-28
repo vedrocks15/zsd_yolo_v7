@@ -359,11 +359,11 @@ class ZSD_IDetect(nn.Module):
     
     def eval(self):
         #self.text_embeddings = self.val_text_embeddings
-        self.update_nc_no()
+        #self.update_nc_no()
         return super().eval()
     
     def train(self, mode=True):
-        self.text_embeddings = self.train_text_embeddings if mode else self.val_text_embeddings
+        self.text_embeddings = self.train_text_embeddings #if mode else self.val_text_embeddings
         self.update_nc_no()
         return super().train(mode)
          
