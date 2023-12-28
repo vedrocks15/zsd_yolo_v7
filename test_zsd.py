@@ -88,7 +88,6 @@ def test(data,
     if training:  
         # get model device...
         device = next(model.parameters()).device  
-
     else:  
         # called directly
         set_logging()
@@ -117,8 +116,9 @@ def test(data,
     if half:
         model.half()
 
-    # Switching the model to evaluation mode.....
+    # Switching the model to evaluation mode to change similarity matrix labels.....
     model.eval()
+    print({k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)})
     
     # during evaluation supporting dynamic change of text embeddings.....
     if text_embedding_path:
@@ -161,6 +161,7 @@ def test(data,
     if single_cls:
         names = {0: 'object'}
     else:
+        # loading names from the model....
         if opt.zsd:
             names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
             #names[-1]= "self_label"
@@ -427,33 +428,33 @@ def test(data,
         nt = torch.zeros(1)
         print('NO STATS')
     
-    # #remap classes
-    # mapping = {int(val_info['classes'][i]): i for i in range(len(val_info['ap_class']))}
-    # for v in all_info.values():
-    #     v['classes_m'] = [mapping[i] for i in v['classes'] if i in mapping.keys()]
-    # # Print results
-    # pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
-    # recall_info = process_recall(zsd_recall_correct, zsd_recall_classes, nt)
-    # #torch.save(recall_info, save_dir / 'recall_info.pt')
-    # for k, v in all_info.items():
-    #     v['mp'], v['mr'], v['map50'], v['map'] = val_info['p'][v['classes_m']].mean(), val_info['r'][v['classes_m']].mean(), val_info['ap50'][v['classes_m']].mean(), val_info['ap'][v['classes_m']].mean()
-    #     print(pf % (k, seen, nt.sum(), v['mp'], v['mr'], v['map50'], v['map']))
+    #remap classes
+    mapping = {int(val_info['classes'][i]): i for i in range(len(val_info['ap_class']))}
+    for v in all_info.values():
+        v['classes_m'] = [mapping[i] for i in v['classes'] if i in mapping.keys()]
+    # Print results
+    pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
+    recall_info = process_recall(zsd_recall_correct, zsd_recall_classes, nt)
+    #torch.save(recall_info, save_dir / 'recall_info.pt')
+    for k, v in all_info.items():
+        v['mp'], v['mr'], v['map50'], v['map'] = val_info['p'][v['classes_m']].mean(), val_info['r'][v['classes_m']].mean(), val_info['ap50'][v['classes_m']].mean(), val_info['ap'][v['classes_m']].mean()
+        print(pf % (k, seen, nt.sum(), v['mp'], v['mr'], v['map50'], v['map']))
 
-    #     # Print results per class
-    #     if (verbose or (nc < 50 and not training)) and nc > 1 and len(v['stats']):
-    #         for i, c in zip(v['classes'], v['classes_m']):
-    #             print(pf % (str(i) + ' ' + data['all_names'][i], seen, nt[c], val_info['p'][c], val_info['r'][c], val_info['ap50'][c], val_info['ap'][c]))
-    #         #create double whitespace lines
-    #     print('\n')
+        # Print results per class
+        if (verbose or (nc < 50 and not training)) and nc > 1 and len(v['stats']):
+            for i, c in zip(v['classes'], v['classes_m']):
+                print(pf % (str(i) + ' ' + data['all_names'][i], seen, nt[c], val_info['p'][c], val_info['r'][c], val_info['ap50'][c], val_info['ap'][c]))
+            #create double whitespace lines
+        print('\n')
     
     # Print speeds
     t = tuple(x / seen * 1E3 for x in (t0, t1, t0 + t1)) + (imgsz, imgsz, batch_size)  # tuple
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
     
-    # for k, v in all_info.items():
-    #     info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
-    #     print(f'Recall for {k}: {info}')
+    for k, v in all_info.items():
+        info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
+        print(f'Recall for {k}: {info}')
     
     # Plots
     if plots:
