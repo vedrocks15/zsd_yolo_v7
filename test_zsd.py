@@ -162,7 +162,7 @@ def test(data,
         names = {0: 'object'}
     else:
         if opt.zsd:
-            names = {i: data["unseen_class"][i] for i in range(len(data['unseen_class']))}
+            names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
     
@@ -187,7 +187,7 @@ def test(data,
                 det.favor[i] = opt.favor
     
     all_info = {}
-    create_eval_key(all_info, 'val_names', classes=data['unseen_class'])
+    create_eval_key(all_info, 'val_names', classes=data['seen_class'])
     for i in opt.eval_splits:
         create_eval_key(all_info, i, classes=data[i])
 
