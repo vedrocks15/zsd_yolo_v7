@@ -137,7 +137,7 @@ def test(data,
 
     # this  is not the embedding dimension, this is the actual class count...
     nc = 1 if single_cls else model.model[-1].nc
-    nc = 65
+    print(model.model[-1].nc)
     
     # iou vector for mAP@0.5:0.95
     iouv = torch.linspace(0.5, 0.95, 10).to(device)  
