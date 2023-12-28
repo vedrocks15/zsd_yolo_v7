@@ -163,7 +163,7 @@ def test(data,
     else:
         if opt.zsd:
             names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
-            names = {-1:"self_label"}
+            names[-1]= "self_label"
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
     
