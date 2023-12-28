@@ -4,7 +4,7 @@
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
 train: /home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/train/images # 61598 images
-val: /home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/val_yolo/images  # 65k images
+val: /home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/val/images  # 65k images
 
 #test: ./coco/test-dev2017.txt 
 
