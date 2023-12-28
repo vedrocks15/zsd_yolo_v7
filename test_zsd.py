@@ -88,7 +88,6 @@ def test(data,
     if training:  
         # get model device...
         device = next(model.parameters()).device  
-        print(device)
 
     else:  
         # called directly
@@ -244,7 +243,6 @@ def test(data,
         with torch.no_grad():
             out, train_out = model(img, augment=augment)  # inference and training outputs
         t0 += time_synchronized() - t
-        print(len(out))
 
         # Compute loss
         if compute_loss:
