@@ -88,6 +88,7 @@ def test(data,
     if training:  
         # get model device...
         device = next(model.parameters()).device  
+        print(device)
 
     else:  
         # called directly
