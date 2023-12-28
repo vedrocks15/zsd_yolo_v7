@@ -549,6 +549,7 @@ def train(hyp, opt, device, tb_writer=None):
             #  Write
             if opt.zsd:
                 with open(results_file, 'a') as f:
+                    pass
                    # f.write(s + '%10.4g' * 10 % results + '\n')  # append metrics, val_loss
             else:
                 with open(results_file, 'a') as f:
