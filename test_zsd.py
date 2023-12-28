@@ -118,7 +118,6 @@ def test(data,
 
     # Switching the model to evaluation mode to change similarity matrix labels.....
     model.eval()
-    print({k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)})
     
     # during evaluation supporting dynamic change of text embeddings.....
     if text_embedding_path:
@@ -163,7 +162,7 @@ def test(data,
     else:
         # loading names from the model....
         if opt.zsd:
-            names = {i: data["seen_class"][i] for i in range(len(data['seen_class']))}
+            names = {i: data["unseen_class"][i] for i in range(len(data['unseen_class']))}
             #names[-1]= "self_label"
         else:
             names = {k: v for k, v in enumerate(model.names if hasattr(model, 'names') else model.module.names)}
@@ -189,7 +188,7 @@ def test(data,
                 det.favor[i] = opt.favor
     
     all_info = {}
-    create_eval_key(all_info, 'val_names', classes=data['seen_class'])
+    create_eval_key(all_info, 'val_names', classes=data['unseen_class'])
     for i in opt.eval_splits:
         create_eval_key(all_info, i, classes=data[i])
 
@@ -340,6 +339,7 @@ def test(data,
                 # target boxes
                 tbox = xywh2xyxy(labels[:, 1:5])
                 scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
+                
                 if plots:
                     confusion_matrix.process_batch(predn, torch.cat((labels[:, 0:1], tbox), 1))
 
@@ -429,7 +429,7 @@ def test(data,
         print('NO STATS')
     
     #remap classes
-    mapping = {int(val_info['classes'][i]): i for i in range(len(val_info['ap_class']))}
+    mapping = {val_info['classes'][i]: i for i in range(len(val_info['ap_class']))}
     for v in all_info.values():
         v['classes_m'] = [mapping[i] for i in v['classes'] if i in mapping.keys()]
     # Print results
