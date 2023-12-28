@@ -451,9 +451,9 @@ def test(data,
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
     
-    for k, v in all_info.items():
-        info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
-        print(f'Recall for {k}: {info}')
+    # for k, v in all_info.items():
+    #     info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
+    #     print(f'Recall for {k}: {info}')
     
     # Plots
     if plots:
