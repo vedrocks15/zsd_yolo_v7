@@ -110,6 +110,7 @@ def create_dataloader(path,
                         sampler=sampler,
                         pin_memory=True,
                         collate_fn=loader_type.collate_fn4 if quad else loader_type.collate_fn)
+    
     return dataloader, dataset
 
 
@@ -776,7 +777,7 @@ class LoadZSD(Dataset):  # for training/testing
                     print(os.path.join(label_path, name), e)
                     pass
 
-            print(f'Originally: {len(self.img_files)} images.  Found only {len(label_names)} label files.')
+            logging.info(f'Originally: {len(self.img_files)} images.  Found only {len(label_names)} label files.')
             
             # getting consistent labels & images....
             self.img_files = sorted([i for i in self.img_files if i.split(os.sep)[-1].split('.')[0] in label_names])    

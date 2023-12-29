@@ -42,7 +42,9 @@ logger = logging.getLogger(__name__)
 def train(hyp, opt, device, tb_writer=None):
 
     # Reading & logging hyper-parameters....
-    logger.info(colorstr('hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
+    logger.info(colorstr('Hyperparameters: ') + ', '.join(f'{k}={v}' for k, v in hyp.items()))
+    
+    # setting up variables....
     save_dir, epochs, batch_size, total_batch_size, weights, rank, freeze = \
         Path(opt.save_dir), opt.epochs, opt.batch_size, opt.total_batch_size, opt.weights, opt.global_rank, opt.freeze
 
@@ -77,7 +79,9 @@ def train(hyp, opt, device, tb_writer=None):
     # Logging - Doing this before checking the dataset. Might update data_dict
     loggers = {'wandb': None}  # loggers dict
     if rank in [-1, 0]:
-        opt.hyp = hyp  # add hyperparameters
+
+        # add hyperparameters
+        opt.hyp = hyp  
         run_id = torch.load(weights, map_location=device).get('wandb_id') if weights.endswith('.pt') and os.path.isfile(weights) else None
         wandb_logger = WandbLogger(opt, Path(opt.save_dir).stem, run_id, data_dict)
         loggers['wandb'] = wandb_logger.wandb
@@ -85,12 +89,12 @@ def train(hyp, opt, device, tb_writer=None):
         if wandb_logger.wandb:
             weights, epochs, hyp = opt.weights, opt.epochs, opt.hyp  # WandbLogger might update weights, epochs if resuming
 
-    # Extracting class names from data yaml file 
+    # Extracting class count from data yaml file....
     nc = 1 if opt.single_cls else int(data_dict['nc']) 
     
     # Class names for zsd flag....
     if opt.zsd:
-        names = [i for i in data_dict['train_names']]
+        names = [i for i in data_dict['seen_class']]
     else:
         names = ['item'] if opt.single_cls and len(data_dict['names']) != 1 else data_dict['names']  # class names
     
@@ -117,7 +121,6 @@ def train(hyp, opt, device, tb_writer=None):
         # only load overlapping weight keys....
         logger.info('Transferred %g/%g items from %s' % (len(state_dict), len(model.state_dict()), weights))  # report
     else:
-        # if zsd, then zsd config file is loaded.....
         model = Model(opt.cfg, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp = hyp).to(device)  # create
     
     with torch_distributed_zero_first(rank):
@@ -256,7 +259,7 @@ def train(hyp, opt, device, tb_writer=None):
     scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=lf)
     # plot_lr_scheduler(optimizer, scheduler, epochs)
 
-    # EMA
+    # EMA (exponential moving average model.....)
     ema = ModelEMA(model) if rank in [-1, 0] else None
 
     # Resume
@@ -722,7 +725,6 @@ if __name__ == '__main__':
     
     # Parsing all cmd line arguments.....
     opt = parser.parse_args()
-    print(opt)
 
     # Set DDP variables
     opt.world_size  = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
@@ -730,7 +732,7 @@ if __name__ == '__main__':
     set_logging(opt.global_rank)
    
 
-    # Resume Training...
+    # Resume Training by fetching information from the last checkpoint....
     wandb_run = check_wandb_resume(opt)
     if opt.resume and not wandb_run:  # resume an interrupted run
         ckpt = opt.resume if isinstance(opt.resume, str) else get_latest_run()  # specified or most recent path
@@ -741,6 +743,7 @@ if __name__ == '__main__':
         opt.cfg, opt.weights, opt.resume, opt.batch_size, opt.global_rank, opt.local_rank = '', ckpt, True, opt.total_batch_size, *apriori  # reinstate
         logger.info('Resuming training from %s' % ckpt)
     else:
+        # fresh training....
         # opt.hyp = opt.hyp or ('hyp.finetune.yaml' if opt.weights else 'hyp.scratch.yaml')
         opt.data, opt.cfg, opt.hyp = check_file(opt.data), check_file(opt.cfg), check_file(opt.hyp)  # check files
         assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
@@ -775,7 +778,8 @@ if __name__ == '__main__':
     # Train
     logger.info(opt)
     if not opt.evolve:
-        tb_writer = None  # init loggers
+        tb_writer = None  
+        # Parent process starts the logging initialization....
         if opt.global_rank in [-1, 0]:
             prefix = colorstr('tensorboard: ')
             logger.info(f"{prefix}Start with 'tensorboard --logdir {opt.project}', view at http://localhost:6006/")

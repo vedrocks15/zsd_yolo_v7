@@ -310,6 +310,7 @@ class ZSD_IDetect(nn.Module):
         self.register_buffer('anchor_grid', a.clone().view(self.nl, 1, -1, 1, 1, 2))  # shape(nl,1,na,1,1,2)
         self.m = nn.ModuleList(nn.Conv2d(x, (self.text_embeddings.shape[1] + 5) * self.na, 1) for x in ch)  # output conv
         
+        # figure out the function of these 2 layers....
         self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
         self.im = nn.ModuleList(ImplicitM((self.text_embeddings.shape[1] + 5) * self.na) for _ in ch)
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
@@ -326,8 +327,10 @@ class ZSD_IDetect(nn.Module):
             # reshapping the output to appropriate dimensions....
             x[i] = x[i].view(bs, self.na, self.text_embeddings.shape[1] + 5, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
 
-            if not self.training:  # inference
+            # inference.....
+            if not self.training:  
                 if self.grid[i].shape[2:4] != x[i].shape[2:4]:
+                    # making a grid like stucture.....
                     self.grid[i] = self._make_grid(nx, ny).to(x[i].device)
                 
                 # applying sigmoid on first 5 outputs.....
@@ -343,12 +346,17 @@ class ZSD_IDetect(nn.Module):
                     y = torch.cat((xy, wh, y[..., 4:]), -1)
 
                 #ENSURE THIS MAPS EVERYTHING BACK TO THEIR ORIGINAL POSITIONS PROPERLY
+                # x,y,w,h,objectness....
                 y = y.reshape(-1, 5)
+
+                # running similarity compute on embeddings....
                 cls_outputs = x[i][:, :, :, :, 5:].reshape(-1, self.text_embeddings.shape[1])
                 cls_outputs = self.sim_func(cls_outputs, 
                                             self.text_embeddings, 
                                             favor=self.favor.to(self.text_embeddings.device) if self.favor != None else None)
+                # getting a softmax class output....
                 y = torch.cat([y, cls_outputs], dim=-1)
+                # reshaping y to proper format....
                 z.append(y.view(bs, -1, self.no))
 
         return x if self.training else (torch.cat(z, 1), x)
@@ -755,6 +763,8 @@ class Model(nn.Module):
 
         # Define model
         ch = self.yaml['ch'] = self.yaml.get('ch', ch)  # input channels
+        
+        # Supplied nc is not the same as config file class count....
         if nc and nc != self.yaml['nc']:
             logger.info(f"Overriding model.yaml nc={self.yaml['nc']} with nc={nc}")
             self.yaml['nc'] = nc  # override yaml value
@@ -766,23 +776,29 @@ class Model(nn.Module):
 
         # Main function to read the loaded config file....
         self.model, self.save = parse_model(deepcopy(self.yaml), ch=[ch])  # model, savelist
-        self.names = [str(i) for i in range(self.yaml['nc'])]  # default names
+        # default names are string integers....
+        self.names = [str(i) for i in range(self.yaml['nc'])]  
         self.hyp = hyp
 
         # Build strides, anchors
-        m = self.model[-1]  # Detect()
+        m = self.model[-1]  # Extracted the final model layer once it has been parsed....
         
+        # Custom ZSD detection head....
         if isinstance(m, Detect) or isinstance(m, ZSD_IDetect):
+            # Stride calculations.....
             s = 256  # 2x min stride
             m.stride = torch.tensor([s / x.shape[-2] for x in self.forward(torch.zeros(1, ch, s, s))])  # forward
             check_anchor_order(m)
             m.anchors /= m.stride.view(-1, 1, 1)
             self.stride = m.stride
-            self._initialize_biases()  # only run once
+            # only run once (start from scratch)
+            self._initialize_biases()  
 
+            # additional steps for zero shot model....
             if isinstance(m, ZSD_IDetect):
                 
-                # set favor to None initially....
+                # set favor to None initially.... (what is favor ????)
+                # something that is used in similarity calculation of text embeddings....
                 m.favor = torch.Tensor(hyp.get('favor')) if hyp.get('favor') else None
 
                 # type of text similarity function to be used.....
@@ -988,8 +1004,11 @@ class Model(nn.Module):
 
 def parse_model(d, ch):  # model_dict, input_channels(3)
     logger.info('\n%3s%18s%3s%10s  %-40s%-30s' % ('', 'from', 'n', 'params', 'module', 'arguments'))
+
+    # g is gain in width & depth for complex model scaling in larger YOLOs....
     anchors, nc, gd, gw = d['anchors'], d['nc'], d['depth_multiple'], d['width_multiple']
-    na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  # number of anchors
+    # number of anchors at each scale....
+    na = (len(anchors[0]) // 2) if isinstance(anchors, list) else anchors  
     no = na * (nc + 5)  # number of outputs = anchors * (classes + 5)
 
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
@@ -1043,8 +1062,10 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
             c2 = ch[f] // 2
         elif m in [Detect, IDetect, IAuxDetect, IBin, IKeypoint, ZSD_IDetect]:
             args.append([ch[x] for x in f])
+            # Converting anchor count to multiple anchor list format....
             if isinstance(args[1], int):  # number of anchors
                 args[1] = [list(range(args[1] * 2))] * len(f)
+
         elif m is ReOrg:
             c2 = ch[f] * 4
         elif m is Contract:
@@ -1054,6 +1075,7 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         else:
             c2 = ch[f]
 
+        # Building each layer after args have been parsed appropriately.....
         m_ = nn.Sequential(*[m(*args) for _ in range(n)]) if n > 1 else m(*args)  # module
         t = str(m)[8:-2].replace('__main__.', '')  # module type
         np = sum([x.numel() for x in m_.parameters()])  # number params
@@ -1061,9 +1083,12 @@ def parse_model(d, ch):  # model_dict, input_channels(3)
         logger.info('%3s%18s%3s%10.0f  %-40s%-30s' % (i, f, n, np, t, args))  # print
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)  # append to savelist
         layers.append(m_)
+
+        # first index layer has no previous information to append to...
         if i == 0:
             ch = []
         ch.append(c2)
+
     return nn.Sequential(*layers), sorted(save)
 
 
