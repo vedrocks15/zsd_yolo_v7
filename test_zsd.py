@@ -503,9 +503,7 @@ def test(data,
     if any('_temp' in k for k in data.keys()) and opt.eval_by_splits and opt.zsd and model.hyp['sim_func'] == 0:
         model.model[-1].sim_func.temp = prev_temp
     #print(list(val_info['ap50']))
-    return (*training_fitness(all_info), *(loss.cpu() / len(dataloader)).tolist()), 
-           maps, 
-           t
+    return (*training_fitness(all_info), *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
 
 if __name__ == '__main__':
