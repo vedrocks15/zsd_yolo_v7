@@ -600,7 +600,7 @@ def train(hyp, opt, device, tb_writer=None):
                 # Save last, best and delete
                 torch.save(ckpt, last)
                 no_det = deepcopy(model).half()
-                no_det.model = no_det.model[:-1]
+                no_det.model = no_det.module.model[:-1]
                 torch.save(no_det, last_no_det)
                 if best_fitness == fi:
                     torch.save(ckpt, best)
