@@ -311,8 +311,8 @@ class ZSD_IDetect(nn.Module):
         self.m = nn.ModuleList(nn.Conv2d(x, (self.text_embeddings.shape[1] + 5) * self.na, 1) for x in ch)  # output conv
         
         # figure out the function of these 2 layers....
-        self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
-        self.im = nn.ModuleList(ImplicitM((self.text_embeddings.shape[1] + 5) * self.na) for _ in ch)
+        #self.ia = nn.ModuleList(ImplicitA(x) for x in ch)
+        #self.im = nn.ModuleList(ImplicitM((self.text_embeddings.shape[1] + 5) * self.na) for _ in ch)
         self.inplace = inplace  # use in-place ops (e.g. slice assignment)
         
     def forward(self, x):
@@ -320,9 +320,11 @@ class ZSD_IDetect(nn.Module):
         z = []  # inference output
         self.training |= self.export
         for i in range(self.nl):
-            x[i] = self.m[i](self.ia[i](x[i]))  # conv
-            x[i] = self.im[i](x[i])
-            
+            #x[i] = self.m[i](self.ia[i](x[i]))  # conv
+            #x[i] = self.im[i](x[i])
+            x[i] = self.m[i](x[i])
+
+
             bs, _, ny, nx = x[i].shape  # x(bs,255,20,20) to x(bs,3,20,20,85)
             # reshapping the output to appropriate dimensions....
             x[i] = x[i].view(bs, self.na, self.text_embeddings.shape[1] + 5, ny, nx).permute(0, 1, 3, 4, 2).contiguous()
