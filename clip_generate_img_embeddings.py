@@ -37,7 +37,7 @@ from threading import Thread
 from importlib import reload
 
 # CLIP imports (instead of Torch we use the hugging face repo for clip)
-from transformers import CLIPProcessor, CLIPModel
+import clip
 from torchvision import models
 import pickle
 from PIL import Image
@@ -88,20 +88,12 @@ opt = Namespace(single_cls=False,
                 zsd=False)
 
 
-# base paths (specify path with respect to server)
-base_yolo_dir = "./yolo_coco_dataset_65_15/"
-
 # fetching GPU
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
+print("Device type : ",device)
 
-# Base model instantiation CLIP model
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-# laoding model on GPU (Global Variable....)
-clip_model = clip_model.to(device)
-
-# Hyper-param loading..
+# Hyper-param loading.. (for pretrained YOLOv7)
 with open('data/hyp.scratch.p5.yaml') as f:
     hyp = yaml.safe_load(f)
 
@@ -121,7 +113,9 @@ def load_model(model_path,
 
 # clip inference function...
 def extract_image_embeddings(images, 
-                             boxes):
+                             boxes,
+                             clip_model, 
+                             preprocess):
 
     all_embeddings = []
 
@@ -134,24 +128,15 @@ def extract_image_embeddings(images,
         # crop & extract bounding boxes....
         for j in range(len(bboxes)):
             x1, y1, x2, y2 = [int(k) for k in bboxes[j]]
-            # Hugging face handles all required pre-processing...
-            regions.append(images[i][:, y1:y2, x1:x2].clone().detach().float())
+            regions.append(preprocess(images[i][:, y1:y2, x1:x2].clone().detach().float() / 255))
 
         if len(regions):
-            # preprocessing them for CLIP....
-            crop_batch = clip_processor(text=["Random text"], 
-                                        images=regions, 
-                                        return_tensors="pt", 
-                                        padding=True)
-
-            # CLIP inference.....                
-            crop_batch = crop_batch.to(device)
-            crop_op = clip_model(**crop_batch)
-            img_crop_embeddings = crop_op.image_embeds
-            all_embeddings.append(img_crop_embeddings)
+            regions = torch.stack(regions).cuda()
+            with torch.no_grad():
+                all_embeddings.append(clip_model.visual(regions))
         else:
             all_embeddings.append(torch.zeros((0, 512)).cuda())
-        
+            
     return all_embeddings
 
 # annotation saver....
@@ -172,6 +157,7 @@ def generate_zsd_data(path,
                       imgsz=640, 
                       batch_size=16, 
                       model_path=None, 
+                      clip_name='ViT-B/32', 
                       score_thresh=0.1, 
                       iou_thresh=0.1, 
                       loader=None, 
@@ -185,9 +171,13 @@ def generate_zsd_data(path,
     if os.path.exists(out_path) and delete:
         shutil.rmtree(out_path)
         os.mkdir(out_path)
+
+    # loading clip model...
+    clip_model, preprocess = clip.load(clip_name)
     
     # loading baseline yolo for the purpose of self labelling....
     model = load_model(model_path, hyp).eval() if model_path else None
+    
     # disable model training phase....
     model.eval() 
     gs = max(int(model.stride.max()), 32)  if model else 32
@@ -196,6 +186,8 @@ def generate_zsd_data(path,
     loader, _ = (loader, None) if loader else create_dataloader(path, imgsz, batch_size, gs, opt, hyp=hyp, workers=4)
     
     # self labelling loop....
+    # replacing centre crop with resize 
+    preprocess.transforms = [Resize(size=(224, 224)), lambda x: x.type(torch.cuda.HalfTensor), preprocess.transforms[-1]]
     removed_boxes, total_boxes, self_label_boxes = 0, 0, 0
     pbar = tqdm(loader, total=len(loader))
     for data in pbar:
@@ -280,7 +272,7 @@ def generate_zsd_data(path,
                 removed_boxes += previous_len - len(split_boxes[i])
 
         # getting image embeddings for each image... [image box details, image vector embedding]
-        embeddings = [torch.zeros((i.shape[0], 512)) for i in split_boxes] if test else extract_image_embeddings(data[0], [i[:, :4] for i in split_boxes])
+        embeddings = [torch.zeros((i.shape[0], 512)) for i in split_boxes] if test else extract_image_embeddings(data[0], [i[:, :4] for i in split_boxes], clip_model, preprocess)
         # converting back to proper label format.....
         for i in range(len(split_boxes)):
             split_boxes[i][:, :4] = xyxy2xywhn(split_boxes[i][:, :4], 
