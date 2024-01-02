@@ -49,9 +49,21 @@ half = False
 augment = False
 
 
+def load_model(weights, hyp, device='cuda', nc=80):
+    ckpt = torch.load(weights, map_location=device)  # load checkpoint
+    model = Model(ckpt['model'].yaml, ch=3, nc=nc, anchors=hyp.get('anchors'), hyp=hyp).cuda()
+    #exclude = ['anchor'] if (hyp.get('anchors')) else []  # exclude keys
+    exclude = []
+    state_dict = ckpt['model'].float().state_dict()  # to FP32
+    state_dict = intersect_dicts(state_dict, model.state_dict(), exclude=exclude)  # intersect
+    model.load_state_dict(state_dict, strict=False)  # load
+    return model
+
+
 # loading hyper-parameters...
 hyp_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training2/hyp.yaml"
 opt_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training2/opt.yaml"
+
 
 with open(hyp_script, 'r') as f:
     hyp = yaml.safe_load(f)
@@ -67,8 +79,9 @@ with open(opt_script, 'r') as f:
     for k, v in opt_tmp.items():
         setattr(opt,k,v)
     
-weights = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training2/weights/best.pt"
-model = attempt_load(weights, map_location=device)
+weights = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training3/weights/best.pt"
+#model = attempt_load(weights, map_location=device)
+model = load_model(weights, hyp, device=device)
 
 # downsampling factor......
 gs = max(int(model.stride.max()), 32)  
@@ -85,7 +98,7 @@ text_embedding_path = "/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/
 with open('/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/data/zsd_coco_65.yaml') as f:
     data = yaml.safe_load(f)
 
-testloader = create_dataloader(data["val"], 
+testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/test_zsd/images/", 
                                imgsz, 
                                batch_size, 
                                gs, 
@@ -98,7 +111,8 @@ testloader = create_dataloader(data["val"],
                                annot_folder="labels")[0]
 
 
-
+opt.no_zsd_post = False
+opt.nms_then_zsd = False
 # main test function 
 results, maps, times = test_zsd.test(data,
                                      batch_size = batch_size * 2,
@@ -106,7 +120,7 @@ results, maps, times = test_zsd.test(data,
                                      model = model,
                                      single_cls = opt.single_cls or opt.eval_single,
                                      dataloader = testloader,
-                                     save_dir = "",
+                                     save_dir = Path(""),
                                      verbose = opt.verbose,
                                      plots=False,
                                      wandb_logger = None,

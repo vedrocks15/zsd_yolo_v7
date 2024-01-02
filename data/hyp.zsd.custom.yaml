@@ -1,29 +1,29 @@
 lr0: 0.00282  # initial learning rate (SGD=1E-2, Adam=1E-3)
 lrf: 0.09282  # final OneCycleLR learning rate (lr0 * lrf)
 momentum: 0.85403  # SGD momentum/Adam beta1
-weight_decay: 0.00038  # optimizer weight decay 5e-4
+weight_decay: 0.005  # optimizer weight decay 5e-4
 warmup_epochs: 0.0  # warmup epochs (fractions ok)
 warmup_momentum: 0.5  # warmup initial momentum
-warmup_bias_lr: 0.01  # warmup initial bias lr
+warmup_bias_lr: 0.05  # warmup initial bias lr
 box: 0.03  # box loss gain
-cls: 0.04688  # cls loss gain
+cls: 0.07  # cls loss gain
 img_distill_weight : 1.2196 # distillation loss weights
-text_distill_weight : 1.05278 # distillation loss weights
+text_distill_weight : 1.25278 # distillation loss weights
 cls_pw: 0.631 # cls BCELoss positive_weight
-obj: 2.67895  # obj loss gain (scale with pixels)
+obj: 1.3  # obj loss gain (scale with pixels) (og. 2.6789)
 temp: 3.91 # temperature parameter
 obj_pw: 0.911  # obj BCELoss positive_weight
-iou_t: 0.14671  # IoU training threshold
-anchor_t: 2.91  # anchor-multiple threshold
+iou_t: 0.2 # IoU training threshold
+anchor_t: 4.0  # anchor-multiple threshold
 # anchors: 3  # anchors per output layer (0 to ignore)
 fl_gamma: 0.0  # focal loss gamma (efficientDet default gamma=1.5)
 hsv_h: 0.0168  # image HSV-Hue augmentation (fraction)
 hsv_s: 0.7876  # image HSV-Saturation augmentation (fraction)
 hsv_v: 0.45518  # image HSV-Value augmentation (fraction)
-degrees: 0.373  # image rotation (+/- deg)
+degrees: 0.0  # image rotation (+/- deg)
 translate: 0.16587 # image translation (+/- fraction)
-scale: 0.64818  # image scale (+/- gain)
-shear: 0.602  # image shear (+/- deg)
+scale: 0.2  # image scale (+/- gain)
+shear: 0.0  # image shear (+/- deg)
 perspective: 0.0  # image perspective (+/- fraction), range 0-0.001
 flipud: 0.00856  # image flip up-down (probability)
 fliplr: 0.5  # image flip left-right (probability)

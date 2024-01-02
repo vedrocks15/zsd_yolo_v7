@@ -434,7 +434,7 @@ def test(data,
         v['classes_m'] = [mapping[i] for i in v['classes'] if i in mapping.keys()]
     # Print results
     pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
-    recall_info = process_recall(zsd_recall_correct, zsd_recall_classes, nt)
+    #recall_info = process_recall(zsd_recall_correct, zsd_recall_classes, nt)
     #torch.save(recall_info, save_dir / 'recall_info.pt')
     for k, v in all_info.items():
         v['mp'], v['mr'], v['map50'], v['map'] = val_info['p'][v['classes_m']].mean(), val_info['r'][v['classes_m']].mean(), val_info['ap50'][v['classes_m']].mean(), val_info['ap'][v['classes_m']].mean()
@@ -452,8 +452,8 @@ def test(data,
     if not training:
         print('Speed: %.1f/%.1f/%.1f ms inference/NMS/total per %gx%g image at batch-size %g' % t)
     
-    for k, v in all_info.items():
-        info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
+    #for k, v in all_info.items():
+        #info = torch.stack([recall_info.get(k) if k in recall_info.keys() else torch.zeros_like(iour) for k in v['classes_m']]).sum(dim=0) / len(v['classes_m'])
         #print(f'Recall for {k}: {info}')
     
     # Plots
