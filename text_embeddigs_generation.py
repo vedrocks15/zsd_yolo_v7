@@ -45,7 +45,6 @@ random.seed(seed)
 np.random.seed(seed)
 
 
-
 # loading data config file....(order is very important to maintain)
 with open('data/zsd_coco_65.yaml') as f:
     meta = yaml.safe_load(f)
@@ -54,6 +53,7 @@ with open('data/zsd_coco_65.yaml') as f:
 unseen_names = [i for i in meta['unseen_class']]
 seen_names = [i for i in meta['seen_class']]
 all_names = seen_names + unseen_names
+print("All names used : ",all_names)
 
 # loading word definitions for better text embeddings...
 defs = {i: wordnet.synsets(i)[0].definition() if len(wordnet.synsets(i)) else '' for i in all_names}
@@ -70,6 +70,7 @@ templates = ['a photo of {} in the scene']
 
 # loading & setting up clip model
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
+print("Device used : ",device)
 
 # Base model instantiation CLIP model
 clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
@@ -93,7 +94,9 @@ def zeroshot_classifier(classnames,
             text_batch.to(device)                          
             op = clip_model(**text_batch)
             class_embeddings = op.text_embeds
+            # l2 normalize each text vector....
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
+            # get mean for all templates.....
             class_embedding = class_embeddings.mean(dim=0)
             class_embedding /= class_embedding.norm()
             zeroshot_weights.append(class_embedding)
