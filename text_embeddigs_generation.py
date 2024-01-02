@@ -31,8 +31,8 @@ from pathlib import Path
 from threading import Thread
 from importlib import reload
 
-# CLIP imports (instead of Torch we use the hugging face repo for clip)
-from transformers import CLIPProcessor, CLIPModel
+# CLIP imports (use original CLIP repo))
+import clip
 from torchvision import models
 import pickle
 import yaml
@@ -72,12 +72,8 @@ templates = ['a photo of {} in the scene']
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 print("Device used : ",device)
 
-# Base model instantiation CLIP model
-clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-
-# laoding model on GPU (Global Variable....)
-clip_model = clip_model.to(device)
+# Fetching CLIP model...
+model, preprocess = clip.load('ViT-B/32')
 
 # helper function
 def zeroshot_classifier(classnames, 
@@ -87,13 +83,9 @@ def zeroshot_classifier(classnames,
         zeroshot_weights = []
         for classname in tqdm(classnames):
             temp_texts = [template.format(classname) for template in templates] #format with class
-            text_batch = clip_processor(text = temp_texts, 
-                                        images = [np.ones((225,225,3))*30], 
-                                        return_tensors="pt", 
-                                        padding=True)
-            text_batch.to(device)                          
-            op = clip_model(**text_batch)
-            class_embeddings = op.text_embeds
+            texts = clip.tokenize(temp_texts).cuda()
+            class_embeddings = model.encode_text(texts) #embed with text encoder
+            
             # l2 normalize each text vector....
             class_embeddings /= class_embeddings.norm(dim=-1, keepdim=True)
             # get mean for all templates.....
