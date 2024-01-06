@@ -402,7 +402,7 @@ class LoadImagesAndLabels(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path[:-1] if path[-1] == '/' else path # removing an additional forward slash...
-        self.image_folder = "images"
+        self.image_folder = self.path.split("/")[-1]
         self.annot_folder = annot_folder
 
 
@@ -731,7 +731,7 @@ class LoadZSD(Dataset):  # for training/testing
         self.mosaic_border = [-img_size // 2, -img_size // 2]
         self.stride = stride
         self.path = path[:-1] if path[-1] == '/' else path
-        self.image_folder = "images"
+        self.image_folder = self.path.split("/")[-1]
         self.annot_folder = annot_folder
 
         # Image directory testing....
