@@ -136,5 +136,5 @@ head:
    [88, 1, RepConv, [512, 3, 1]],
    [101, 1, RepConv, [1024, 3, 1]],
 
-   [[102,103,104], 1, ZSD_IDetect, [nc, anchors, '/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/seen_coco_text_embeddings_65_15.pt', '/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/unseen_coco_text_embeddings_65_15.pt', False]],   # Detect(P3, P4, P5)
+   [[102,103,104], 1, ZSD_IDetect, [nc, anchors, '/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/embeddings/seen_coco_text_embeddings_65_15.pt', '/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/embeddings/unseen_coco_text_embeddings_65_15_no_def.pt', False]],   # Detect(P3, P4, P5)
   ]

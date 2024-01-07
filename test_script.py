@@ -60,9 +60,10 @@ def load_model(weights, hyp, device='cuda', nc=80):
     return model
 
 
+base_dir_path = ""
 # loading hyper-parameters...
-hyp_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training2/hyp.yaml"
-opt_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training2/opt.yaml"
+hyp_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/" + base_dir_path + "/hyp.yaml"
+opt_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/" + base_dir_path + "/opt.yaml"
 
 
 with open(hyp_script, 'r') as f:
@@ -79,7 +80,7 @@ with open(opt_script, 'r') as f:
     for k, v in opt_tmp.items():
         setattr(opt,k,v)
     
-weights = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/yolov7_zsd_training3/weights/best.pt"
+weights = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/" + base_dir_path + "/weights/best.pt"
 #model = attempt_load(weights, map_location=device)
 model = load_model(weights, hyp, device=device)
 
@@ -92,13 +93,13 @@ model.eval()
 print("Training flag : ",model.training)
 
 # text embeddings load....
-text_embedding_path = "/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/unseen_coco_text_embeddings_65_15.pt"
+text_embedding_path = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/embeddings/unseen_coco_text_embeddings_65_15.pt"
 
 # loading data file
 with open('/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/data/zsd_coco_65.yaml') as f:
     data = yaml.safe_load(f)
 
-testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/yolo_coco_dataset_65_15/test_zsd/images/", 
+testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/coco_zsd_65_15/test/test_2014/", 
                                imgsz, 
                                batch_size, 
                                gs, 
@@ -108,11 +109,20 @@ testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/yolo_coco_datas
                                cache=False,
                                hyp={'do_zsd': opt.zsd},
                                prefix=colorstr(f'{"valid"}: '), 
-                               annot_folder="labels")[0]
+                               annot_folder="label_clip_vectors_test_zsd")[0]
 
 
 opt.no_zsd_post = False
 opt.nms_then_zsd = False
+# Low NMS thresh
+opt.iou_thres = 0.4
+
+# 2nd zsd filtering critirea....
+opt.obj_conf_thresh = 0.1
+
+# limiting max dets for safety...
+opt.max_det = 15
+
 # main test function 
 results, maps, times = test_zsd.test(data,
                                      batch_size = batch_size * 2,

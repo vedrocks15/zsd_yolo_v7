@@ -62,7 +62,7 @@ def test(data,
          batch_size=32,
          imgsz=640,
          conf_thres=0.001, # zsd style NMS to remove super under confident boxes
-         iou_thres=0.6,    # for regular NMS
+         iou_thres=0.4,    # for regular NMS
          save_json=False,
          single_cls=False,
          augment=False,

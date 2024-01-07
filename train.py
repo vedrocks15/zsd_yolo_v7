@@ -347,7 +347,7 @@ def train(hyp, opt, device, tb_writer=None):
                                         workers=opt.workers,  
                                         pad=0.5, 
                                         prefix=colorstr('val: '),
-                                        annot_folder="labels")[0]
+                                        annot_folder=opt.annot_folder)[0]
 
         if not opt.resume:
             labels = np.concatenate([i[:, :5] for i in dataset.labels], 0)
@@ -708,7 +708,7 @@ if __name__ == '__main__':
     # ZSD specific parameters.......
     parser.add_argument('--canonical-epochs', type=int, default=200, help='number of intended epochs during hyp evolution')
     parser.add_argument('--eval-single', action='store_true', help='evaluate single class but train multi')
-    parser.add_argument('--iou-thres', type=float, default=0.7, help='iou value for testing')
+    parser.add_argument('--iou-thres', type=float, default=0.4, help='iou value for testing')
     parser.add_argument('--obj-conf-thresh', type=float, default=0.1, help='obj conf thresh for zsd detections')
     parser.add_argument('--max-det', type=int, default=300, help='maximum detections for inference')
     parser.add_argument('--zsd', action='store_true')
