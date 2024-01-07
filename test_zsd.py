@@ -61,8 +61,8 @@ def test(data,
          weights=None,
          batch_size=32,
          imgsz=640,
-         conf_thres=0.001,
-         iou_thres=0.6,  # for NMS
+         conf_thres=0.001, # zsd style NMS to remove super under confident boxes
+         iou_thres=0.6,    # for regular NMS
          save_json=False,
          single_cls=False,
          augment=False,
@@ -70,9 +70,9 @@ def test(data,
          model=None,
          dataloader=None,
          save_dir=Path(''),  # for saving images
-         save_txt=False,  # for auto-labelling
+         save_txt=False,     # for auto-labelling
          save_hybrid=False,  # for hybrid auto-labelling
-         save_conf=False,  # save auto-label confidences
+         save_conf=False,    # save auto-label confidences
          plots=True,
          wandb_logger=None,
          compute_loss=None,
@@ -113,6 +113,8 @@ def test(data,
 
     # Half
     half = device.type != 'cpu' and half_precision  # half precision only supported on CUDA
+    
+    # Note compute results without half-precision.....
     if half:
         model.half()
 
@@ -151,10 +153,17 @@ def test(data,
         if device.type != 'cpu':
             model(torch.zeros(1, 3, imgsz, imgsz).to(device).type_as(next(model.parameters())))  # run once
         task = opt.task if opt.task in ('train', 'val', 'test') else 'val'  # path to train/val/test images
-        dataloader = create_dataloader(data[task], imgsz, batch_size, gs, opt, pad=0.5, rect=True, hyp={'do_zsd': opt.zsd},
-                                       prefix=colorstr(f'{task}: '), annot_folder=opt.annot_folder)[0]
+        dataloader = create_dataloader(data[task], 
+                                       imgsz, 
+                                       batch_size, 
+                                       gs, 
+                                       opt, 
+                                       pad=0.5, 
+                                       rect=True, 
+                                       hyp={'do_zsd': opt.zsd},
+                                       prefix=colorstr(f'{task}: '), 
+                                       annot_folder=opt.annot_folder)[0]
     
-
     seen = 0
     confusion_matrix = ConfusionMatrix(nc=nc)
     if single_cls:
@@ -187,6 +196,7 @@ def test(data,
             for i in data['unseen_names']:
                 det.favor[i] = opt.favor
     
+    # main score selection dictionary.... (string names in dict)
     all_info = {}
     create_eval_key(all_info, 'val_names', classes=data['unseen_class'])
     for i in opt.eval_splits:
@@ -197,9 +207,12 @@ def test(data,
     
     # converts 80-index (val2014) to 91-index (paper)
     coco91class = coco80_to_coco91_class()
+    
     # logging headers in terminal....
     s = ('%20s' + '%12s' * 6) % ('Class', 'Images', 'Labels', 'P', 'R', 'mAP@.5', 'mAP@.5:.95')
     p, r, f1, mp, mr, map50, map, t0, t1 = 0., 0., 0., 0., 0., 0., 0., 0., 0.
+    
+    # loss computation...
     if opt.zsd:
         # 7 components : box_regression loss | objectness loss | image distillation | text distillation | self image | self text | cls
         loss = torch.zeros(7, device=device)
@@ -229,6 +242,8 @@ def test(data,
     
     # looping the test data loader.....
     for batch_i, (img, targets, paths, shapes) in enumerate(tqdm(dataloader, desc=s)):
+        
+        # single class setup....
         if single_cls:
             targets[:, 1] = 0.0
    
@@ -239,10 +254,10 @@ def test(data,
         targets = targets.to(device)
         nb, _, height, width = img.shape  # batch size, channels, height, width
 
-        # Run model
+        # Run model....
         t = time_synchronized()
         with torch.no_grad():
-            out, train_out = model(img, augment=augment)  # inference and training outputs
+            out, train_out = model(img, augment = augment)  # inference and training outputs
         t0 += time_synchronized() - t
 
         # Compute loss
@@ -253,8 +268,8 @@ def test(data,
             else:
                 loss += compute_loss([x.float() for x in train_out], targets)[1][:3]  # box, obj, cls
         
-        # Run zsd NMS 
-        targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device) # scaling the labels appropriately...
+        # Run zsd NMS (scaling the labels appropriately...)
+        targets[:, 2:6] *= torch.Tensor([width, height, width, height]).to(device) 
 
         lb = [targets[targets[:, 0] == i, 1:] for i in range(nb)] if save_hybrid else []  # for autolabelling
         
@@ -270,7 +285,7 @@ def test(data,
                                       multi_label=True, 
                                       agnostic=single_cls or opt.agnostic_nms, 
                                       zsd=opt.zsd and (not opt.no_zsd_post), 
-                                      obj_conf_thresh=opt.obj_conf_thresh, 
+                                      obj_conf_thresh = opt.obj_conf_thresh, 
                                       max_det=opt.max_det, 
                                       eval_splits=[data[k] for k in opt.eval_splits], 
                                       nms_then_zsd=opt.nms_then_zsd)
@@ -284,10 +299,12 @@ def test(data,
             tcls = labels[:, 0] if nl else torch.Tensor([])  # target class
             path = Path(paths[si])
             seen += 1
-
+            
+            # no predictions from the model....
             if len(pred) == 0:
                 if nl:
                     for k, v in all_info.items():
+                        # class indices.....
                         cls_idx = torch.Tensor([i for i in range(len(tcls)) if tcls[i] in v['classes_set']]).type(torch.LongTensor)
                         v['stats'].append((torch.zeros(0, niou, dtype=torch.bool), torch.Tensor(), torch.Tensor(), tcls.cpu()))
                 continue
@@ -296,7 +313,10 @@ def test(data,
             if single_cls:
                 pred[:, 5] = 0
             predn = pred.clone()
-            scale_coords(img[si].shape[1:], predn[:, :4], shapes[si][0], shapes[si][1])  # native-space pred
+            scale_coords(img[si].shape[1:], 
+                         predn[:, :4], 
+                         shapes[si][0], 
+                         shapes[si][1])  # native-space pred
 
             # Append to text file
             if save_txt:
@@ -333,12 +353,16 @@ def test(data,
 
             # Assign all predictions as incorrect
             correct = torch.zeros(pred.shape[0], niou, dtype=torch.bool, device=device)
+            
             if nl:
                 detected = []  # target indices
                 tcls_tensor = labels[:, 0]
                 # target boxes
                 tbox = xywh2xyxy(labels[:, 1:5])
-                scale_coords(img[si].shape[1:], tbox, shapes[si][0], shapes[si][1])  # native-space labels
+                scale_coords(img[si].shape[1:], 
+                             tbox, 
+                             shapes[si][0], 
+                             shapes[si][1])  # native-space labels
                 
                 if plots:
                     confusion_matrix.process_batch(predn, torch.cat((labels[:, 0:1], tbox), 1))
@@ -349,19 +373,23 @@ def test(data,
                     ti = (cls == tcls_tensor).nonzero(as_tuple=False).view(-1)  # target indices
                     total += ti.shape[0]
                     pi = (cls == pred[:, 5]).nonzero(as_tuple=False).view(-1)  # prediction indices
+                    
                     # Search for detections
                     if pi.shape[0]:
+                        
                         # Prediction to target ious
                         ious, i = box_iou(predn[pi, :4], tbox[ti]).max(1)  # best ious, indices
                         
                         # Append detections
                         detected_set = set()
+                        # 0.5 det threshold....
                         for j in (ious > iouv[0]).nonzero(as_tuple=False):
                             d = ti[i[j]]  # detected target
                             if d.item() not in detected_set:
                                 detected_set.add(d.item())
                                 detected.append(d)
                                 correct[pi[j]] = ious[j] > iouv  # iou_thres is 1xn
+                                
                                 if len(detected) == nl:  # all targets already located in image
                                     break
                         
@@ -419,9 +447,16 @@ def test(data,
         torch.save(stats_per_img, save_dir / 'stats_per_img.pt')
     
     val_info = all_info['val_names']
-    val_info['stats'] = [np.concatenate(x, 0) for x in zip(*val_info['stats'])]  # to numpy
+    
+    # to numpy
+    val_info['stats'] = [np.concatenate(x, 0) for x in zip(*val_info['stats'])] 
+    
     if len(val_info['stats']) and val_info['stats'][0].any():
-        val_info['p'], val_info['r'], val_info['ap'], val_info['f1'], val_info['ap_class'] = ap_per_class(*val_info['stats'], plot=plots, save_dir=save_dir, names=names)
+        val_info['p'], val_info['r'], val_info['ap'], val_info['f1'], val_info['ap_class'] = ap_per_class(*val_info['stats'], 
+                                                                                                          plot=plots, 
+                                                                                                          save_dir=save_dir, 
+                                                                                                          names=names)
+        # Average precision count.....
         val_info['ap50'], val_info['ap'] = val_info['ap'][:, 0], val_info['ap'].mean(1)  # AP@0.5, AP@0.5:0.95
         nt = np.bincount(val_info['stats'][3].astype(np.int64), minlength=nc)  # number of targets per class
     else:
@@ -432,8 +467,9 @@ def test(data,
     mapping = {val_info['classes'][i]: i for i in range(len(val_info['ap_class']))}
     for v in all_info.values():
         v['classes_m'] = [mapping[i] for i in v['classes'] if i in mapping.keys()]
+
     # Print results
-    pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  # print format
+    pf = '%20s' + '%12i' * 2 + '%12.3g' * 4  
     #recall_info = process_recall(zsd_recall_correct, zsd_recall_classes, nt)
     #torch.save(recall_info, save_dir / 'recall_info.pt')
     for k, v in all_info.items():
@@ -497,12 +533,14 @@ def test(data,
     if not training:
         s = f"\n{len(list(save_dir.glob('labels/*.txt')))} labels saved to {save_dir / 'labels'}" if save_txt else ''
         print(f"Results saved to {save_dir}{s}")
+    
     maps = np.zeros(nc) + all_info['val_names']['map']
     for i, c in enumerate(all_info['val_names']['ap_class']):
         maps[c] = all_info['val_names']['ap'][i]
     if any('_temp' in k for k in data.keys()) and opt.eval_by_splits and opt.zsd and model.hyp['sim_func'] == 0:
         model.model[-1].sim_func.temp = prev_temp
     #print(list(val_info['ap50']))
+    
     return (*training_fitness(all_info), *(loss.cpu() / len(dataloader)).tolist()), maps, t
 
 

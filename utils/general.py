@@ -719,9 +719,19 @@ def non_max_suppression(prediction, conf_thres=0.25, iou_thres=0.45, classes=Non
 
     return output
 
-def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes=None, agnostic=False, multi_label=False,
-                        labels=(), max_det=300, zsd=False, obj_conf_thresh=0.1, suppress=[], eval_splits=None,
-                        nms_then_zsd=False):
+def non_max_suppression_zsd(prediction, 
+                            conf_thres=0.25, 
+                            iou_thres=0.45, 
+                            classes=None, 
+                            agnostic=False, 
+                            multi_label=False,
+                            labels=(), 
+                            max_det=300, 
+                            zsd=False, 
+                            obj_conf_thresh=0.1, 
+                            suppress=[], 
+                            eval_splits=None,
+                            nms_then_zsd=False):
     """Runs Non-Maximum Suppression (NMS) on inference results
 
     Returns:
@@ -772,10 +782,14 @@ def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes
                 for idx, i in enumerate([torch.Tensor(i).type(torch.LongTensor) for i in eval_splits]):
                     new_x[(len(x) * idx): (len(x) * (idx + 1)), i] = x[:, i + 5]
                 x = torch.cat([x[:, :5].repeat(len(eval_splits), 1), new_x], dim=1)
+            
+            # zsd style max class x confidence score....
             x = x[(x[:, 5:].max(dim=1)[0] * x[:, 4]) > obj_conf_thresh]
+        
         #else:
         if (not zsd) or nms_then_zsd:
             x[:, 5:] *= x[:, 4:5]  # conf = obj_conf * cls_conf
+
         #print(x.shape)
         # Box (center x, center y, width, height) to (x1, y1, x2, y2)
         box = xywh2xyxy(x[:, :4])
@@ -791,26 +805,27 @@ def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes
             #x = torch.cat((box[i], x[i, 4], j[:, None].float()), 1)
             if nms_then_zsd:
                 obj_confs = x[i, 4]
+
+            # storing the multi-labels....
             x = torch.cat((box[i], x[i, j + 5, None], j[:, None].float()), 1)
-        else:  # best class only
-            #print(x.shape)
+
+        else:  
+            # best class only
             if nms_then_zsd:
                 obj_confs = x[:, 4]
             conf, j = x[:, 5:].max(1, keepdim=True)
             x = torch.cat((box, conf, j.float()), 1)[conf.view(-1) > conf_thres]
-        #print(x.shape)
+        
+
         # Filter by class
         if classes is not None:
             x = x[(x[:, 5:6] == torch.tensor(classes, device=x.device)).any(1)]
-
-        # Apply finite constraint
-        # if not torch.isfinite(x).all():
-        #     x = x[torch.isfinite(x).all(1)]
 
         # Check shape
         n = x.shape[0]  # number of boxes
         if not n:  # no boxes
             continue
+        
         elif n > max_nms:  # excess boxes
             x = x[x[:, 4].argsort(descending=True)[:max_nms]]  # sort by confidence
 
@@ -819,6 +834,7 @@ def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes
         
         boxes, scores = x[:, :4] + c, x[:, 4]  # boxes (offset by class), scores
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
+
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
@@ -835,6 +851,7 @@ def non_max_suppression_zsd(prediction, conf_thres=0.25, iou_thres=0.45, classes
         #print(obj_confs.shape, x.shape, i.shape)
         if nms_then_zsd:
             x[i, 4] = x[i, 4] / obj_confs[i]
+        
         output[xi] = x[i]
         if (time.time() - t) > time_limit:
             print(f'WARNING: NMS time limit {time_limit}s exceeded')

@@ -1725,7 +1725,7 @@ class ZSDCrossEntropy(nn.Module):
                 self.normalizer = torch.load(hyp['normalizer_path']) ** hyp['normalize']
                 self.normalizer = self.normalizer / self.normalizer.mean()
         
-        # no clue....
+        # no clue....(background class embedding)
         self.bg = det.bg
        
     def __call__(self, cls_pred, img_targets=None, classes=None, text_embeddings=None):

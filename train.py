@@ -94,6 +94,7 @@ def train(hyp, opt, device, tb_writer=None):
     
     # Class names for zsd flag....
     if opt.zsd:
+        # string names
         names = [i for i in data_dict['seen_class']]
     else:
         names = ['item'] if opt.single_cls and len(data_dict['names']) != 1 else data_dict['names']  # class names
@@ -132,6 +133,7 @@ def train(hyp, opt, device, tb_writer=None):
 
     # loading the supervised weights from seen class training ????
     if opt.zsd and opt.initial_bg_path:
+        # pre-loading backgroundclass embedding as used in ViLD
         model.model[-1].bg = nn.Parameter(torch.load(opt.initial_bg_path, map_location=device), requires_grad=True)
     
     # Freeze the layers....
@@ -147,6 +149,7 @@ def train(hyp, opt, device, tb_writer=None):
     nbs = 64  
     # accumulate loss before optimizing (helps in using smaller batch sizes....)
     accumulate = max(round(nbs / total_batch_size), 1) 
+    
     # scale weight_decay.......
     hyp['weight_decay'] *= total_batch_size * accumulate / nbs  
     logger.info(f"Scaled weight_decay = {hyp['weight_decay']}")
@@ -423,6 +426,7 @@ def train(hyp, opt, device, tb_writer=None):
 
         # mean losses
         mloss = torch.zeros(8 if opt.zsd else 4, device=device)  
+        
         # multi gpu data loading....
         if rank != -1:
             dataloader.sampler.set_epoch(epoch)
@@ -754,8 +758,7 @@ if __name__ == '__main__':
 
     # DDP mode
     opt.total_batch_size = opt.batch_size
-    device = select_device(opt.device, 
-                           batch_size = opt.batch_size)
+    device = select_device(opt.device, batch_size = opt.batch_size)
 
     # Setting up some checks for distributed training.
     if opt.local_rank != -1:
