@@ -1,16 +1,16 @@
-lr0: 0.00282  # initial learning rate (SGD=1E-2, Adam=1E-3)
-lrf: 0.09282  # final OneCycleLR learning rate (lr0 * lrf)
-momentum: 0.85403  # SGD momentum/Adam beta1
+lr0: 0.00682  # initial learning rate (SGD=1E-2, Adam=1E-3)
+lrf: 0.0982  # final OneCycleLR learning rate (lr0 * lrf)
+momentum: 0.9  # SGD momentum/Adam beta1
 weight_decay: 0.005  # optimizer weight decay 5e-4
 warmup_epochs: 0.0  # warmup epochs (fractions ok)
 warmup_momentum: 0.5  # warmup initial momentum
 warmup_bias_lr: 0.05  # warmup initial bias lr
 box: 0.03  # box loss gain
-cls: 0.07  # cls loss gain
+cls: 0.09  # cls loss gain
 img_distill_weight : 1.25 # distillation loss weights
 text_distill_weight : 1.05 # distillation loss weights
 cls_pw: 0.631 # cls BCELoss positive_weight
-obj: 1.3  # obj loss gain (scale with pixels) (og. 2.6789)
+obj: 2.6789  # obj loss gain (scale with pixels) (og. 2.6789)
 temp: 3.91 # temperature parameter
 obj_pw: 0.911  # obj BCELoss positive_weight
 iou_t: 0.2 # IoU training threshold
@@ -41,7 +41,7 @@ temp : 3.91
 contrast: 4.0
 bias : 1.5     
 diff_exp : 1 # power for l1, l2 .... loss
-self_img_loss_scalar : 1.0   # scalar multiplicative constants for self labels
+self_img_loss_scalar : 1.2   # scalar multiplicative constants for self labels
 self_text_loss_scalar : 0  # scalar multiplicative constants for self labels
        
 

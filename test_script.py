@@ -60,7 +60,7 @@ def load_model(weights, hyp, device='cuda', nc=80):
     return model
 
 
-base_dir_path = ""
+base_dir_path = "yolov7_zsd_training2"
 # loading hyper-parameters...
 hyp_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/" + base_dir_path + "/hyp.yaml"
 opt_script = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/runs/train/" + base_dir_path + "/opt.yaml"
@@ -99,7 +99,7 @@ text_embedding_path = "/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/embeddings/u
 with open('/home/AD/vejoshi/yolo_open_world/zsd_yolo_v7/data/zsd_coco_65.yaml') as f:
     data = yaml.safe_load(f)
 
-testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/coco_zsd_65_15/test/test_2014/", 
+testloader = create_dataloader("/home/AD/vejoshi/yolo_open_world/dataset/coco_zsd_65_15/test/test_2014/", 
                                imgsz, 
                                batch_size, 
                                gs, 

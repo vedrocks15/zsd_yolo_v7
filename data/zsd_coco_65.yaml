@@ -3,8 +3,8 @@
 # Maintain same order as classes.txt
 
 # train and val data as 1) directory: path/images/, 2) file: path/images.txt, or 3) list: [path1/images/, path2/images/]
-train: /home/AD/vejoshi/yolo_open_world/coco_zsd_65_15/train/train2014 # 61k images
-val: /home/AD/vejoshi/yolo_open_world/coco_zsd_65_15/val/val2014  # 20k images
+train: /home/AD/vejoshi/yolo_open_world/dataset/coco_zsd_65_15/train/train2014 # 61k images
+val: /home/AD/vejoshi/yolo_open_world/dataset/coco_zsd_65_15/val/val2014  # 20k images
 
 #test: ./coco/test-dev2017.txt 
 

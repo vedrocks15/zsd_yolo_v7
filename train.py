@@ -163,7 +163,7 @@ def train(hyp, opt, device, tb_writer=None):
             pg0.append(v.weight)  # no decay
         elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):
             pg1.append(v.weight)  # apply decay
-       
+        """    
         # additional YOLOv7 Params compated to yoloV5
         if hasattr(v, 'im'):
             if hasattr(v.im, 'implicit'):           
@@ -221,7 +221,7 @@ def train(hyp, opt, device, tb_writer=None):
                 pg0.append(v.rbr_dense.weight_rbr_gconv_pw)
             if hasattr(v.rbr_dense, 'vector'):   
                 pg0.append(v.rbr_dense.vector)
-
+        """
     # selecting optimizer....
     if opt.adam:
         # Adam contains both momentum & rms prop that is why 2 betas.....
